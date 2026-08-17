@@ -174,7 +174,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060911] text-slate-100 flex flex-col font-sans select-none antialiased">
+    <div className="min-h-screen bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
       {/* Top Application Header Bar */}
       <Topbar
         activeTab={activeTab}

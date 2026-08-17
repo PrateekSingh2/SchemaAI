@@ -3,34 +3,37 @@
 
 @layer base {
   :root {
-    --background: #060911;
-    --foreground: #f8fafc;
-    --card: #0b0f19;
-    --card-foreground: #f8fafc;
-    --border: #1e293b;
-    --input: #1e293b;
-    --ring: #38bdf8;
+    --background: #121110;
+    --foreground: #fafaf9;
+    --card: #1c1917;
+    --card-foreground: #fafaf9;
+    --border: #292524;
+    --input: #1c1917;
+    --ring: #3ecf8e;
   }
 }
 
 body {
-  background-color: #060911;
-  color: #f8fafc;
+  background-color: #121110;
+  color: #fafaf9;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-}
-
-/* Subtle background grid pattern */
-.bg-grid-pattern {
-  background-size: 32px 32px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(62, 207, 142, 0.06), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(217, 119, 6, 0.03), transparent 60%);
 }
 
-/* Custom Scrollbars */
+/* Warm Dot Grid background pattern */
+.bg-warm-grid {
+  background-size: 28px 28px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+}
+
+/* Custom Scrollbars (Supabase warm stone) */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -41,135 +44,147 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #292524;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #44403c;
 }
 
-/* Glassmorphism Classes */
-.glass-panel {
-  background: rgba(11, 15, 25, 0.7);
+/* Polymorphic & Glassmorphism Surfaces */
+.supabase-panel {
+  background: rgba(28, 25, 23, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 10px 30px -10px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.supabase-panel-subtle {
+  background: rgba(23, 20, 18, 0.65);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-panel-subtle {
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
-.glass-modal {
-  background: rgba(10, 14, 23, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+.supabase-modal {
+  background: rgba(20, 18, 16, 0.94);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
-.glass-input {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+.supabase-input {
+  background: rgba(20, 18, 16, 0.8);
+  border: 1px solid rgba(68, 64, 60, 0.6);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.glass-input:focus {
-  background: rgba(15, 23, 42, 0.9);
-  border-color: rgba(56, 189, 248, 0.6);
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+.supabase-input:focus {
+  background: rgba(23, 20, 18, 0.95);
+  border-color: rgba(62, 207, 142, 0.7);
+  box-shadow: 
+    0 0 0 3px rgba(62, 207, 142, 0.15),
+    inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* React Flow Overrides for Dark Developer Aesthetic */
+/* React Flow Overrides (Supabase Warm Dark & Emerald) */
 .react-flow__background {
-  background-color: #060911 !important;
+  background-color: #121110 !important;
 }
 
 .react-flow__controls {
-  background-color: rgba(11, 15, 25, 0.85) !important;
-  backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  background-color: rgba(28, 25, 23, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
   overflow: hidden !important;
 }
 
 .react-flow__controls-button {
   background-color: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  fill: #94a3b8 !important;
-  color: #94a3b8 !important;
-  width: 32px !important;
-  height: 32px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  fill: #a8a29e !important;
+  color: #a8a29e !important;
+  width: 34px !important;
+  height: 34px !important;
   transition: all 0.2s ease !important;
 }
 
 .react-flow__controls-button:hover {
-  background-color: rgba(56, 189, 248, 0.15) !important;
-  fill: #38bdf8 !important;
-  color: #38bdf8 !important;
+  background-color: rgba(62, 207, 142, 0.12) !important;
+  fill: #3ecf8e !important;
+  color: #3ecf8e !important;
 }
 
 .react-flow__minimap {
-  background-color: rgba(11, 15, 25, 0.85) !important;
-  backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 12px !important;
+  background-color: rgba(20, 18, 16, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
   overflow: hidden !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
 }
 
 .react-flow__minimap-mask {
-  fill: rgba(6, 9, 17, 0.75) !important;
+  fill: rgba(18, 17, 16, 0.8) !important;
 }
 
 .react-flow__minimap-node {
-  fill: #1e293b !important;
-  stroke: #38bdf8 !important;
+  fill: #292524 !important;
+  stroke: #3ecf8e !important;
 }
 
 .react-flow__handle {
   width: 8px !important;
   height: 8px !important;
   border-radius: 50% !important;
-  background-color: #38bdf8 !important;
-  border: 2px solid #060911 !important;
+  background-color: #3ecf8e !important;
+  border: 2px solid #1c1917 !important;
   transition: transform 0.2s ease, background-color 0.2s ease !important;
 }
 
 .react-flow__handle:hover {
   transform: scale(1.4) !important;
-  background-color: #67e8f9 !important;
+  background-color: #6ee7b7 !important;
 }
 
 /* Animations */
-@keyframes pulse-ring {
+@keyframes emerald-pulse-ring {
   0% {
-    transform: scale(0.95);
+    transform: scale(0.9);
     opacity: 0.8;
   }
   50% {
-    transform: scale(1.25);
+    transform: scale(1.3);
     opacity: 0;
   }
   100% {
-    transform: scale(0.95);
+    transform: scale(0.9);
     opacity: 0;
   }
 }
 
-.animate-pulse-ring {
-  animation: pulse-ring 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-emerald-pulse {
+  animation: emerald-pulse-ring 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Code block line numbers */
 .code-line-number {
   user-select: none;
-  color: #475569;
+  color: #57534e;
   text-align: right;
   min-width: 2.2rem;
   padding-right: 1.25rem;

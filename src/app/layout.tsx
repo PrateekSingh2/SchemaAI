@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "SchemaAI — Intelligent Natural Language to SQL/GraphQL Query Generation",
-  description: "Production-ready developer workbench for schema introspection, AI-driven SQL/GraphQL generation, and secure execution guards.",
+  description: "Developer workbench for schema introspection, AI-driven SQL/GraphQL generation, and secure execution guards.",
 };
 
 export default function RootLayout({
@@ -23,9 +23,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-full bg-[#080c14] text-slate-100">
+    <html lang="en" className="dark h-full bg-[#121110] text-stone-100">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col font-sans bg-[#080c14] text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-200`}
+        className={`${inter.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col font-sans bg-[#121110] text-stone-100 antialiased selection:bg-[#3ecf8e]/30 selection:text-[#3ecf8e]`}
       >
         {children}
       </body>

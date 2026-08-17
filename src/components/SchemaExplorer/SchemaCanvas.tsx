@@ -40,7 +40,7 @@ export const SchemaCanvas: React.FC = () => {
     (params: Connection) =>
       setEdges((eds) =>
         addEdge(
-          { ...params, animated: true, style: { stroke: "#38bdf8", strokeWidth: 2 } },
+          { ...params, animated: true, style: { stroke: "#3ecf8e", strokeWidth: 2 } },
           eds
         )
       ),
@@ -85,7 +85,7 @@ export const SchemaCanvas: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] bg-[#060911] overflow-hidden select-none">
+    <div className="relative w-full h-[calc(100vh-4rem)] bg-[#121110] overflow-hidden select-none">
       {/* Top Floating Control Bar */}
       <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-3">
         {/* Search Bar */}
@@ -95,13 +95,13 @@ export const SchemaCanvas: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter tables or columns..."
-            className="w-64 pl-9 pr-3 py-2 rounded-xl bg-slate-950/80 backdrop-blur-md border border-white/[0.08] text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 shadow-xl transition-all font-mono"
+            className="w-64 pl-9 pr-3 py-2 rounded-2xl bg-[#1c1917]/90 backdrop-blur-xl border border-[#292524] text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-[#3ecf8e] focus:ring-1 focus:ring-[#3ecf8e] shadow-xl transition-all font-mono"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2 text-[10px] text-slate-400 hover:text-white bg-slate-900 px-1.5 py-0.5 rounded"
+              className="absolute right-2.5 top-2 text-[10px] text-stone-400 hover:text-stone-200 bg-stone-800 px-1.5 py-0.5 rounded-md"
             >
               Clear
             </button>
@@ -109,34 +109,34 @@ export const SchemaCanvas: React.FC = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center space-x-2 bg-slate-950/80 backdrop-blur-md p-1 rounded-xl border border-white/[0.08] shadow-xl">
+        <div className="flex items-center space-x-2 bg-[#1c1917]/90 backdrop-blur-xl p-1 rounded-2xl border border-[#292524] shadow-xl">
           <button
             onClick={handleResetLayout}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-stone-100 hover:bg-stone-800/60 transition-colors"
             title="Reset to default layout"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+            <RefreshCw className="w-3.5 h-3.5 text-[#3ecf8e]" />
             <span>Reset View</span>
           </button>
 
-          <div className="h-4 w-[1px] bg-white/[0.08]" />
+          <div className="h-4 w-[1px] bg-[#292524]" />
 
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-slate-400 font-mono">
-            <Layers className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-stone-400 font-mono">
+            <Layers className="w-3.5 h-3.5 text-[#3ecf8e]" />
             <span>{nodes.length} Tables</span>
-            <span className="text-slate-700">•</span>
-            <ArrowRightLeft className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-stone-700">•</span>
+            <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
             <span>{edges.length} Foreign Keys</span>
           </div>
         </div>
       </div>
 
       {/* Top Right Quick Database Info Pill */}
-      <div className="absolute top-4 right-4 z-20 hidden md:flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-950/80 backdrop-blur-md border border-white/[0.08] shadow-xl text-xs text-slate-300">
-        <Database className="w-4 h-4 text-cyan-400" />
-        <span className="font-semibold text-white">production_core_db</span>
-        <span className="text-slate-700">•</span>
-        <span className="font-mono text-[11px] text-emerald-400">Live Schema Introspected</span>
+      <div className="absolute top-4 right-4 z-20 hidden md:flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-[#1c1917]/90 backdrop-blur-xl border border-[#292524] shadow-xl text-xs text-stone-300">
+        <Database className="w-4 h-4 text-[#3ecf8e]" />
+        <span className="font-semibold text-stone-100">production_core_db</span>
+        <span className="text-stone-700">•</span>
+        <span className="font-mono text-[11px] text-[#3ecf8e]">Live Schema Introspected</span>
       </div>
 
       {/* React Flow Graph Surface */}
@@ -158,21 +158,21 @@ export const SchemaCanvas: React.FC = () => {
         <Background
           variant={BackgroundVariant.Dots}
           gap={28}
-          size={1.2}
-          color="#1e293b"
-          className="bg-[#060911]"
+          size={1.4}
+          color="#292524"
+          className="bg-[#121110]"
         />
         <Controls
           position="bottom-left"
-          className="!m-4 !border-white/[0.08] !bg-slate-950/90 !shadow-2xl"
+          className="!m-4 !border-[#292524] !bg-[#1c1917]/95 !shadow-2xl"
         />
         <MiniMap
           position="bottom-right"
-          className="!m-4 !bg-[#0a0e18]/90 !border-white/[0.08] !shadow-2xl"
-          nodeColor="#1e293b"
-          nodeStrokeColor="#38bdf8"
+          className="!m-4 !bg-[#1c1917]/95 !border-[#292524] !shadow-2xl"
+          nodeColor="#292524"
+          nodeStrokeColor="#3ecf8e"
           nodeStrokeWidth={2}
-          maskColor="rgba(6, 9, 17, 0.75)"
+          maskColor="rgba(18, 17, 16, 0.8)"
           zoomable
           pannable
         />
@@ -180,17 +180,17 @@ export const SchemaCanvas: React.FC = () => {
         {/* Selected Table Inspector Panel */}
         {selectedTableInfo && (
           <Panel position="top-right" className="!mt-16 !mr-4 z-20">
-            <div className="w-80 rounded-2xl glass-modal border border-white/[0.1] shadow-2xl p-4 text-slate-200 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+            <div className="w-80 rounded-2xl supabase-modal border border-[#292524] shadow-2xl p-4 text-stone-200 animate-in fade-in slide-in-from-right-4 duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-[#292524]">
                 <div className="flex items-center space-x-2">
-                  <Database className="w-4 h-4 text-cyan-400" />
-                  <h4 className="font-bold text-sm font-mono text-white">
+                  <Database className="w-4 h-4 text-[#3ecf8e]" />
+                  <h4 className="font-bold text-sm font-mono text-stone-100">
                     {selectedTableInfo.tableName}
                   </h4>
                 </div>
                 <button
                   onClick={() => setSelectedTableInfo(null)}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="text-xs text-stone-400 hover:text-stone-100"
                 >
                   ✕
                 </button>
@@ -198,42 +198,42 @@ export const SchemaCanvas: React.FC = () => {
 
               <div className="py-3 space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Schema:</span>
-                  <span className="font-mono text-cyan-300">{selectedTableInfo.schema}</span>
+                  <span className="text-stone-400">Schema:</span>
+                  <span className="font-mono text-[#3ecf8e]">{selectedTableInfo.schema}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Estimated Rows:</span>
-                  <span className="font-mono text-slate-200">
+                  <span className="text-stone-400">Estimated Rows:</span>
+                  <span className="font-mono text-stone-200">
                     {selectedTableInfo.rowCount.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Total Columns:</span>
-                  <span className="font-mono text-slate-200">
+                  <span className="text-stone-400">Total Columns:</span>
+                  <span className="font-mono text-stone-200">
                     {selectedTableInfo.columns.length}
                   </span>
                 </div>
                 <div className="pt-2">
-                  <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
+                  <span className="text-[11px] font-semibold text-stone-400 block mb-1.5">
                     Columns Definition:
                   </span>
                   <div className="max-h-40 overflow-y-auto space-y-1 pr-1 font-mono text-[11px]">
                     {selectedTableInfo.columns.map((col) => (
                       <div
                         key={col.name}
-                        className="flex items-center justify-between px-2 py-1 rounded-lg bg-slate-950/80 border border-white/[0.06]"
+                        className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-[#141210] border border-[#292524]"
                       >
-                        <span className={col.isPrimaryKey ? "text-cyan-400 font-semibold" : "text-slate-300"}>
+                        <span className={col.isPrimaryKey ? "text-[#3ecf8e] font-semibold" : "text-stone-300"}>
                           {col.name}
                         </span>
-                        <span className="text-slate-500 text-[10px]">{col.type}</span>
+                        <span className="text-stone-500 text-[10px]">{col.type}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-[11px] text-slate-400">
+              <div className="pt-2 border-t border-[#292524] flex items-center justify-between text-[11px] text-stone-400">
                 <span className="flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" /> Natural Language Target
                 </span>

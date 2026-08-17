@@ -161,7 +161,7 @@ export const initialTables: Node<TableNodeData>[] = [
   },
 ];
 
-// Initial Edges representing Foreign Key links
+// Initial Edges representing Foreign Key links with Supabase emerald & warm stone styling
 export const initialEdges: Edge[] = [
   {
     id: "e-quizzes-contests",
@@ -170,11 +170,11 @@ export const initialEdges: Edge[] = [
     sourceHandle: "contests-id",
     targetHandle: "quizzes-contest_id",
     animated: true,
-    style: { stroke: "#38bdf8", strokeWidth: 2 },
+    style: { stroke: "#3ecf8e", strokeWidth: 2 },
     label: "1 : N (contest_id)",
-    labelStyle: { fill: "#94a3b8", fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
-    labelBgPadding: [6, 3] as [number, number],
+    labelStyle: { fill: "#a8a29e", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#1c1917", fillOpacity: 0.95 },
+    labelBgPadding: [8, 4] as [number, number],
   },
   {
     id: "e-problems-quizzes",
@@ -183,11 +183,11 @@ export const initialEdges: Edge[] = [
     sourceHandle: "quizzes-id",
     targetHandle: "problems-quiz_id",
     animated: true,
-    style: { stroke: "#818cf8", strokeWidth: 2 },
+    style: { stroke: "#a78bfa", strokeWidth: 2 },
     label: "1 : N (quiz_id)",
-    labelStyle: { fill: "#94a3b8", fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
-    labelBgPadding: [6, 3] as [number, number],
+    labelStyle: { fill: "#a8a29e", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#1c1917", fillOpacity: 0.95 },
+    labelBgPadding: [8, 4] as [number, number],
   },
   {
     id: "e-submissions-users",
@@ -196,11 +196,11 @@ export const initialEdges: Edge[] = [
     sourceHandle: "users-id",
     targetHandle: "submissions-user_id",
     animated: true,
-    style: { stroke: "#34d399", strokeWidth: 2 },
+    style: { stroke: "#3ecf8e", strokeWidth: 2 },
     label: "1 : N (user_id)",
-    labelStyle: { fill: "#94a3b8", fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
-    labelBgPadding: [6, 3] as [number, number],
+    labelStyle: { fill: "#a8a29e", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#1c1917", fillOpacity: 0.95 },
+    labelBgPadding: [8, 4] as [number, number],
   },
   {
     id: "e-submissions-problems",
@@ -211,9 +211,9 @@ export const initialEdges: Edge[] = [
     animated: true,
     style: { stroke: "#fb7185", strokeWidth: 2 },
     label: "1 : N (problem_id)",
-    labelStyle: { fill: "#94a3b8", fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
-    labelBgPadding: [6, 3] as [number, number],
+    labelStyle: { fill: "#a8a29e", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#1c1917", fillOpacity: 0.95 },
+    labelBgPadding: [8, 4] as [number, number],
   },
   {
     id: "e-tags-problems",
@@ -222,11 +222,11 @@ export const initialEdges: Edge[] = [
     sourceHandle: "problems-id",
     targetHandle: "tags-problem_id",
     animated: false,
-    style: { stroke: "#facc15", strokeWidth: 2, strokeDasharray: "4 4" },
+    style: { stroke: "#f59e0b", strokeWidth: 2, strokeDasharray: "4 4" },
     label: "1 : N (problem_id)",
-    labelStyle: { fill: "#94a3b8", fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9 },
-    labelBgPadding: [6, 3] as [number, number],
+    labelStyle: { fill: "#a8a29e", fontSize: 11, fontWeight: 600 },
+    labelBgStyle: { fill: "#1c1917", fillOpacity: 0.95 },
+    labelBgPadding: [8, 4] as [number, number],
   },
 ];
 

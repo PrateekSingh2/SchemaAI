@@ -10,8 +10,6 @@ import {
   Sparkles,
   Server,
   ChevronDown,
-  Activity,
-  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,33 +54,33 @@ export const Topbar: React.FC<TopbarProps> = ({
   ];
 
   return (
-    <header className="h-16 border-b border-white/[0.08] bg-[#070b14]/90 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-30 sticky top-0">
+    <header className="h-16 border-b border-[#292524] bg-[#171513]/90 backdrop-blur-2xl px-4 sm:px-6 flex items-center justify-between z-30 sticky top-0 shadow-sm">
       {/* Brand & Logo */}
       <div className="flex items-center space-x-6">
         <div className="flex items-center space-x-3 cursor-pointer group">
-          <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-violet-500 shadow-md shadow-cyan-500/20 group-hover:shadow-cyan-500/35 transition-all duration-300">
-            <Database className="w-4.5 h-4.5 text-white" />
+          <div className="relative flex items-center justify-center w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#3ecf8e] via-[#22c55e] to-emerald-600 shadow-md shadow-[#3ecf8e]/20 group-hover:shadow-[#3ecf8e]/35 transition-all duration-300">
+            <Database className="w-4.5 h-4.5 text-[#0a1a12]" />
             <Sparkles className="w-3 h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-base tracking-tight bg-gradient-to-r from-white via-slate-100 to-cyan-200 bg-clip-text text-transparent">
+              <span className="font-bold text-base tracking-tight bg-gradient-to-r from-stone-100 via-stone-200 to-[#3ecf8e] bg-clip-text text-transparent">
                 SchemaAI
               </span>
-              <span className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+              <span className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded-full bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/30">
                 PROTOTYPE
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block font-medium">
-              NL to SQL / GraphQL Query Platform
+            <p className="text-[11px] text-stone-400 hidden sm:block font-medium">
+              Intelligent SQL/GraphQL Generator
             </p>
           </div>
         </div>
 
-        <div className="hidden lg:block h-5 w-[1px] bg-white/[0.08]" />
+        <div className="hidden lg:block h-5 w-[1px] bg-[#292524]" />
 
         {/* Tab Navigation Segmented Control */}
-        <nav className="flex items-center space-x-1 bg-slate-950/70 p-1 rounded-xl border border-white/[0.06] shadow-inner">
+        <nav className="flex items-center space-x-1 bg-[#141210]/90 p-1 rounded-2xl border border-[#292524] shadow-inner">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -91,21 +89,21 @@ export const Topbar: React.FC<TopbarProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "relative flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+                  "relative flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200",
                   isActive
-                    ? "bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-white border border-cyan-500/40 shadow-sm shadow-cyan-500/10"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]"
+                    ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md shadow-black/40"
+                    : "text-stone-400 hover:text-stone-200 hover:bg-stone-800/40"
                 )}
               >
                 <Icon
                   className={cn(
                     "w-3.5 h-3.5 transition-colors",
-                    isActive ? "text-cyan-400" : "text-slate-400"
+                    isActive ? "text-[#3ecf8e]" : "text-stone-400"
                   )}
                 />
-                <span className={isActive ? "font-semibold text-slate-100" : ""}>{tab.label}</span>
+                <span className={isActive ? "font-semibold text-stone-100" : ""}>{tab.label}</span>
                 {isActive && (
-                  <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.2 rounded-md bg-cyan-500/20 text-cyan-300 font-mono">
+                  <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.2 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono">
                     {tab.badge}
                   </span>
                 )}
@@ -120,48 +118,48 @@ export const Topbar: React.FC<TopbarProps> = ({
         {/* Database Connection Status Pill */}
         <button
           onClick={onOpenSettings}
-          className="hidden md:flex items-center space-x-2.5 px-3 py-1.5 rounded-xl bg-slate-950/70 border border-white/[0.08] hover:border-slate-700 text-xs text-slate-300 transition-all hover:bg-slate-900 group"
+          className="hidden md:flex items-center space-x-2.5 px-3.5 py-1.5 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-xs text-stone-300 transition-all hover:bg-[#1c1917] group shadow-inner"
           title="Click to configure Database & LLM settings"
         >
           <div className="relative flex items-center justify-center">
             <span
               className={cn(
                 "w-2 h-2 rounded-full",
-                isConnected ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-rose-500"
+                isConnected ? "bg-[#3ecf8e] shadow-[0_0_8px_#3ecf8e]" : "bg-rose-500"
               )}
             />
             {isConnected && (
-              <span className="absolute w-4 h-4 rounded-full bg-emerald-400/30 animate-pulse-ring" />
+              <span className="absolute w-4 h-4 rounded-full bg-[#3ecf8e]/30 animate-emerald-pulse" />
             )}
           </div>
-          <span className="font-semibold text-slate-200">{dbType}</span>
-          <span className="text-slate-600 font-mono">•</span>
-          <div className="flex items-center space-x-1 text-slate-400 group-hover:text-cyan-300 transition-colors">
-            <Server className="w-3.5 h-3.5 text-slate-500" />
+          <span className="font-semibold text-stone-200">{dbType}</span>
+          <span className="text-stone-600 font-mono">•</span>
+          <div className="flex items-center space-x-1 text-stone-400 group-hover:text-[#3ecf8e] transition-colors">
+            <Server className="w-3.5 h-3.5 text-stone-500" />
             <span className="font-mono text-[11px] truncate max-w-[120px]">
               {dbName}
             </span>
           </div>
-          <ChevronDown className="w-3 h-3 text-slate-500 group-hover:text-slate-300 transition-transform" />
+          <ChevronDown className="w-3 h-3 text-stone-500 group-hover:text-stone-300 transition-transform" />
         </button>
 
         {/* Settings Gear Button */}
         <button
           onClick={onOpenSettings}
-          className="relative p-2 rounded-xl bg-slate-950/70 border border-white/[0.08] hover:border-slate-700 text-slate-400 hover:text-cyan-300 hover:bg-slate-900 transition-all duration-200 group shadow-sm"
+          className="relative p-2 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-stone-400 hover:text-[#3ecf8e] hover:bg-[#1c1917] transition-all duration-200 group shadow-inner"
           title="Database & AI Settings"
         >
           <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#38bdf8]" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3ecf8e] shadow-[0_0_6px_#3ecf8e]" />
         </button>
 
         {/* User Profile Avatar */}
         <div className="flex items-center space-x-2 pl-1">
-          <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-[1.5px] cursor-pointer shadow-md hover:shadow-indigo-500/20 transition-shadow">
-            <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center font-bold text-xs text-indigo-200">
-              AI
+          <div className="relative w-8 h-8 rounded-2xl bg-gradient-to-br from-amber-700 to-stone-800 p-[1.5px] cursor-pointer shadow-md hover:shadow-amber-500/10 transition-shadow">
+            <div className="w-full h-full rounded-[14px] bg-[#141210] flex items-center justify-center font-bold text-xs text-stone-200">
+              SB
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-950 shadow-sm" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#3ecf8e] border-2 border-[#141210] shadow-sm" />
           </div>
         </div>
       </div>
