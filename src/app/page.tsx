@@ -24,7 +24,8 @@ export default function HomePage() {
   // Database config state
   const [dbConfig, setDbConfig] = useState<DatabaseConfig>({
     dbType: "PostgreSQL",
-    connectionUri: "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
+    connectionUri:
+      "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
     username: "postgres.admin",
     password: "••••••••••••••••",
     databaseName: "production_core_db",
@@ -100,14 +101,18 @@ export default function HomePage() {
     // Record success in Audit Log
     const newLog: AuditLogEntry = {
       id: `LOG-${Math.floor(10000 + Math.random() * 90000)}`,
-      timestamp: new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
+      timestamp:
+        new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
       ipAddress: "192.168.1.104",
       userPrompt: promptText,
       generatedSql: mockOutput.sql,
       status: "SUCCESS",
       durationMs: mockOutput.executionTime,
       rowsAffected: mockOutput.records.length,
-      model: dbConfig.llmProvider === "openai" ? "GPT-4o (schema-tuned)" : "Claude 3.5 Sonnet",
+      model:
+        dbConfig.llmProvider === "openai"
+          ? "GPT-4o (schema-tuned)"
+          : "Claude 3.5 Sonnet",
       clientDevice: "Chrome 128 / macOS",
     };
 
@@ -126,7 +131,8 @@ export default function HomePage() {
 
     const approvedLog: AuditLogEntry = {
       id: `LOG-${Math.floor(10000 + Math.random() * 90000)}`,
-      timestamp: new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
+      timestamp:
+        new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
       ipAddress: "192.168.1.104",
       userPrompt: pendingMutation.prompt,
       generatedSql: pendingMutation.sql,
@@ -149,7 +155,8 @@ export default function HomePage() {
 
     const blockedLog: AuditLogEntry = {
       id: `LOG-${Math.floor(10000 + Math.random() * 90000)}`,
-      timestamp: new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
+      timestamp:
+        new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
       ipAddress: "192.168.1.104",
       userPrompt: pendingMutation.prompt,
       generatedSql: pendingMutation.sql,
@@ -167,7 +174,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-[#060911] text-slate-100 flex flex-col font-sans select-none antialiased">
       {/* Top Application Header Bar */}
       <Topbar
         activeTab={activeTab}

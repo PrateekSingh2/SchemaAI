@@ -21,12 +21,9 @@ import {
   Search,
   RefreshCw,
   Layers,
-  ZoomIn,
   Sparkles,
-  Maximize2,
   Database,
   ArrowRightLeft,
-  Info,
 } from "lucide-react";
 
 const nodeTypes = {
@@ -40,7 +37,13 @@ export const SchemaCanvas: React.FC = () => {
   const [selectedTableInfo, setSelectedTableInfo] = useState<TableNodeData | null>(null);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: "#38bdf8", strokeWidth: 2 } }, eds)),
+    (params: Connection) =>
+      setEdges((eds) =>
+        addEdge(
+          { ...params, animated: true, style: { stroke: "#38bdf8", strokeWidth: 2 } },
+          eds
+        )
+      ),
     [setEdges]
   );
 
@@ -60,7 +63,7 @@ export const SchemaCanvas: React.FC = () => {
       return {
         ...node,
         style: {
-          opacity: match ? 1 : 0.2,
+          opacity: match ? 1 : 0.15,
           transition: "opacity 0.3s ease",
         },
       };
@@ -82,8 +85,8 @@ export const SchemaCanvas: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] bg-[#070a11] overflow-hidden select-none">
-      {/* Top Toolbar / Filter Header */}
+    <div className="relative w-full h-[calc(100vh-4rem)] bg-[#060911] overflow-hidden select-none">
+      {/* Top Floating Control Bar */}
       <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-3">
         {/* Search Bar */}
         <div className="relative">
@@ -92,36 +95,36 @@ export const SchemaCanvas: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter tables or columns..."
-            className="w-64 pl-9 pr-3 py-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 shadow-xl transition-all"
+            className="w-64 pl-9 pr-3 py-2 rounded-xl bg-slate-950/80 backdrop-blur-md border border-white/[0.08] text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 shadow-xl transition-all font-mono"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2 text-[10px] text-slate-400 hover:text-white bg-slate-800 px-1.5 py-0.5 rounded"
+              className="absolute right-2.5 top-2 text-[10px] text-slate-400 hover:text-white bg-slate-900 px-1.5 py-0.5 rounded"
             >
               Clear
             </button>
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-2 bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-800 shadow-xl">
+        {/* Action Controls */}
+        <div className="flex items-center space-x-2 bg-slate-950/80 backdrop-blur-md p-1 rounded-xl border border-white/[0.08] shadow-xl">
           <button
             onClick={handleResetLayout}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors"
             title="Reset to default layout"
           >
             <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
             <span>Reset View</span>
           </button>
 
-          <div className="h-4 w-[1px] bg-slate-850" />
+          <div className="h-4 w-[1px] bg-white/[0.08]" />
 
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-slate-400">
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-slate-400 font-mono">
             <Layers className="w-3.5 h-3.5 text-indigo-400" />
             <span>{nodes.length} Tables</span>
-            <span className="text-slate-600">|</span>
+            <span className="text-slate-700">•</span>
             <ArrowRightLeft className="w-3.5 h-3.5 text-purple-400" />
             <span>{edges.length} Foreign Keys</span>
           </div>
@@ -129,11 +132,11 @@ export const SchemaCanvas: React.FC = () => {
       </div>
 
       {/* Top Right Quick Database Info Pill */}
-      <div className="absolute top-4 right-4 z-20 hidden md:flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-800 shadow-xl text-xs text-slate-300">
+      <div className="absolute top-4 right-4 z-20 hidden md:flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-950/80 backdrop-blur-md border border-white/[0.08] shadow-xl text-xs text-slate-300">
         <Database className="w-4 h-4 text-cyan-400" />
         <span className="font-semibold text-white">production_core_db</span>
-        <span className="text-slate-600">•</span>
-        <span className="font-mono text-[11px] text-emerald-400">Schema Sync Active</span>
+        <span className="text-slate-700">•</span>
+        <span className="font-mono text-[11px] text-emerald-400">Live Schema Introspected</span>
       </div>
 
       {/* React Flow Graph Surface */}
@@ -154,22 +157,22 @@ export const SchemaCanvas: React.FC = () => {
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={24}
-          size={1.5}
+          gap={28}
+          size={1.2}
           color="#1e293b"
-          className="bg-[#070a11]"
+          className="bg-[#060911]"
         />
         <Controls
           position="bottom-left"
-          className="!m-4 !border-slate-800 !bg-slate-900/90 !shadow-2xl"
+          className="!m-4 !border-white/[0.08] !bg-slate-950/90 !shadow-2xl"
         />
         <MiniMap
           position="bottom-right"
-          className="!m-4 !bg-[#0b0f19]/90 !border-slate-800 !shadow-2xl"
+          className="!m-4 !bg-[#0a0e18]/90 !border-white/[0.08] !shadow-2xl"
           nodeColor="#1e293b"
           nodeStrokeColor="#38bdf8"
           nodeStrokeWidth={2}
-          maskColor="rgba(8, 12, 20, 0.75)"
+          maskColor="rgba(6, 9, 17, 0.75)"
           zoomable
           pannable
         />
@@ -177,8 +180,8 @@ export const SchemaCanvas: React.FC = () => {
         {/* Selected Table Inspector Panel */}
         {selectedTableInfo && (
           <Panel position="top-right" className="!mt-16 !mr-4 z-20">
-            <div className="w-80 rounded-2xl glass-modal border border-slate-700/80 shadow-2xl p-4 text-slate-200 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="w-80 rounded-2xl glass-modal border border-white/[0.1] shadow-2xl p-4 text-slate-200 animate-in fade-in slide-in-from-right-4 duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
                 <div className="flex items-center space-x-2">
                   <Database className="w-4 h-4 text-cyan-400" />
                   <h4 className="font-bold text-sm font-mono text-white">
@@ -218,7 +221,7 @@ export const SchemaCanvas: React.FC = () => {
                     {selectedTableInfo.columns.map((col) => (
                       <div
                         key={col.name}
-                        className="flex items-center justify-between px-2 py-1 rounded bg-slate-900/80 border border-slate-800"
+                        className="flex items-center justify-between px-2 py-1 rounded-lg bg-slate-950/80 border border-white/[0.06]"
                       >
                         <span className={col.isPrimaryKey ? "text-cyan-400 font-semibold" : "text-slate-300"}>
                           {col.name}
@@ -230,7 +233,7 @@ export const SchemaCanvas: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-[11px] text-slate-400">
                 <span className="flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" /> Natural Language Target
                 </span>

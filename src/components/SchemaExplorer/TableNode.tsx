@@ -10,7 +10,6 @@ import {
   Type,
   Calendar,
   ToggleLeft,
-  CheckCircle,
   Sparkles,
 } from "lucide-react";
 import { TableNodeData, ColumnDefinition } from "@/lib/mockData";
@@ -32,21 +31,21 @@ const TableNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
   return (
     <div
       className={cn(
-        "w-72 rounded-xl bg-[#0b0f19]/95 backdrop-blur-md border transition-all duration-300 shadow-2xl text-slate-200 overflow-hidden font-sans group",
+        "w-72 rounded-2xl bg-[#090d18]/95 backdrop-blur-xl border transition-all duration-300 shadow-2xl text-slate-200 overflow-hidden font-sans group",
         selected
-          ? "border-cyan-400 shadow-[0_0_25px_rgba(56,189,248,0.25)] ring-1 ring-cyan-400/50"
-          : "border-slate-800 hover:border-slate-700 hover:shadow-cyan-950/20"
+          ? "border-cyan-400 shadow-[0_0_30px_rgba(56,189,248,0.3)] ring-1 ring-cyan-400/50"
+          : "border-white/[0.08] hover:border-slate-700 hover:shadow-cyan-950/20"
       )}
     >
       {/* Table Header */}
-      <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-850 border-b border-slate-800 flex items-center justify-between">
+      <div className="p-3.5 bg-gradient-to-r from-slate-950 via-slate-950 to-slate-900 border-b border-white/[0.08] flex items-center justify-between">
         <div className="flex items-center space-x-2.5 min-w-0">
-          <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
+          <div className="p-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
             <Table2 className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
-              <span className="text-xs font-mono text-slate-400">{schema}.</span>
+              <span className="text-xs font-mono text-slate-500">{schema}.</span>
               <h3 className="font-bold text-sm text-white tracking-tight truncate font-mono">
                 {tableName}
               </h3>
@@ -61,13 +60,13 @@ const TableNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
 
         {/* Row Count Badge */}
         <div className="flex flex-col items-end">
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-white/[0.06] shrink-0">
             {rowCount.toLocaleString()} rows
           </span>
         </div>
       </div>
 
-      {/* Target/Source Generic Handles for General Node Connections */}
+      {/* Target/Source Generic Handles */}
       <Handle
         type="target"
         position={Position.Left}
@@ -82,17 +81,17 @@ const TableNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
       />
 
       {/* Columns List */}
-      <div className="divide-y divide-slate-800/60 bg-slate-950/60">
-        {columns.map((col: ColumnDefinition, idx: number) => {
+      <div className="divide-y divide-white/[0.04] bg-slate-950/60">
+        {columns.map((col: ColumnDefinition) => {
           return (
             <div
               key={col.name}
               className={cn(
-                "relative flex items-center justify-between px-3.5 py-2 text-xs hover:bg-slate-800/40 transition-colors group/row",
+                "relative flex items-center justify-between px-3.5 py-2 text-xs hover:bg-white/[0.02] transition-colors group/row",
                 col.isPrimaryKey && "bg-cyan-950/15"
               )}
             >
-              {/* Row Target Handle for Specific FK links */}
+              {/* Row Target Handle */}
               <Handle
                 type="target"
                 position={Position.Left}
@@ -140,7 +139,7 @@ const TableNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
 
               {/* Column Type & Nullable Status */}
               <div className="flex items-center space-x-1.5 shrink-0">
-                <span className="font-mono text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span className="font-mono text-[10px] text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/[0.06]">
                   {col.type}
                 </span>
                 {col.isNullable && (
@@ -153,7 +152,7 @@ const TableNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
                 )}
               </div>
 
-              {/* Row Source Handle for Specific FK links */}
+              {/* Row Source Handle */}
               <Handle
                 type="source"
                 position={Position.Right}
@@ -169,7 +168,7 @@ const TableNodeComponent: React.FC<NodeProps> = ({ data, selected }) => {
       </div>
 
       {/* Table Footer */}
-      <div className="px-3.5 py-1.5 bg-slate-900/40 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
+      <div className="px-3.5 py-1.5 bg-slate-950/80 border-t border-white/[0.08] flex items-center justify-between text-[10px] text-slate-500 font-mono">
         <span className="flex items-center gap-1">
           <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> Vector Indexed
         </span>
