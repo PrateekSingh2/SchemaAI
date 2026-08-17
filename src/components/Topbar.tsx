@@ -66,12 +66,9 @@ export const Topbar: React.FC<TopbarProps> = ({
               <span className="font-bold text-base tracking-tight bg-gradient-to-r from-stone-100 via-stone-200 to-[#3ecf8e] bg-clip-text text-transparent">
                 SchemaAI
               </span>
-              <span className="text-[10px] font-mono font-semibold tracking-wide px-1.5 py-0.5 rounded-full bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/30">
-                PROTOTYPE
-              </span>
             </div>
             <p className="text-[11px] text-stone-400 hidden sm:block font-medium">
-              Intelligent SQL/GraphQL Generator
+              Intelligent Query Generator
             </p>
           </div>
         </Link>

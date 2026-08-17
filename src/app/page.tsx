@@ -114,12 +114,12 @@ export default function QueryStudioPage() {
         isConnected={true}
       />
 
-      {/* Main Workspace (Strictly 100% viewport height, zero full-page scroll) */}
-      <main className="flex-1 min-h-0 flex flex-col p-3 sm:p-4 space-y-3 overflow-hidden">
-        {/* Top Split View: SQL Editor (Left) & Records Table (Right) */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-3.5 overflow-hidden">
-          {/* Left: SQL Output Pane */}
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
+      {/* Main Workspace: 40% (Left) : 60% (Right) Split */}
+      <main className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3.5 p-3 sm:p-4 overflow-hidden">
+        {/* Left Column (40% Width): Split 60% Top (SQL) : 40% Bottom (Prompt) */}
+        <div className="w-full lg:w-[40%] h-full min-h-0 flex flex-col gap-3.5 overflow-hidden">
+          {/* Top 60% of Left: Generated SQL/GraphQL Output */}
+          <div className="h-[60%] min-h-0 flex flex-col overflow-hidden">
             <SqlOutput
               sql={currentSql}
               graphql={currentGraphql}
@@ -133,20 +133,20 @@ export default function QueryStudioPage() {
             />
           </div>
 
-          {/* Right: Records Table Grid */}
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <RecordsTable
-              columns={currentColumns}
-              records={currentRecords}
+          {/* Bottom 40% of Left: Prompt Input & Run Button */}
+          <div className="h-[40%] min-h-0 flex flex-col overflow-hidden">
+            <PromptInput
+              onGenerateAndRun={handleGenerateAndRun}
               isLoading={isGenerating}
             />
           </div>
         </div>
 
-        {/* Bottom Docked Natural Language Input (Fixed at bottom) */}
-        <div className="shrink-0">
-          <PromptInput
-            onGenerateAndRun={handleGenerateAndRun}
+        {/* Right Column (60% Width): Fetched Query Execution Records (Dual Horizontal & Vertical Scrolling) */}
+        <div className="w-full lg:w-[60%] h-full min-h-0 flex flex-col overflow-hidden">
+          <RecordsTable
+            columns={currentColumns}
+            records={currentRecords}
             isLoading={isGenerating}
           />
         </div>
