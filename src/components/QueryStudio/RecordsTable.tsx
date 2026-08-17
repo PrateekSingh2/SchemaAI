@@ -8,6 +8,8 @@ import {
   FileSpreadsheet,
   ArrowUpDown,
   FileJson,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,12 +17,16 @@ interface RecordsTableProps {
   columns: string[];
   records: Array<Record<string, any>>;
   isLoading?: boolean;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 export const RecordsTable: React.FC<RecordsTableProps> = ({
   columns = [],
   records = [],
   isLoading = false,
+  isMaximized = false,
+  onToggleMaximize,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -86,7 +92,7 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
           </div>
         </div>
 
-        {/* Search and Export Buttons */}
+        {/* Search, Export & Maximize Buttons */}
         <div className="flex items-center space-x-2">
           <div className="relative">
             <input
@@ -119,6 +125,25 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
               <FileJson className="w-3 h-3 text-stone-400" />
               <span>JSON</span>
             </button>
+
+            {onToggleMaximize && (
+              <button
+                onClick={onToggleMaximize}
+                className={cn(
+                  "p-1.5 rounded-xl border transition-all duration-200 shadow-sm ml-1",
+                  isMaximized
+                    ? "bg-[#3ecf8e]/20 border-[#3ecf8e]/50 text-[#3ecf8e]"
+                    : "bg-[#1c1917] border-[#292524] text-stone-400 hover:text-stone-100 hover:bg-[#201d1a]"
+                )}
+                title={isMaximized ? "Restore view (minimize)" : "Maximize Results Table"}
+              >
+                {isMaximized ? (
+                  <Minimize2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Maximize2 className="w-3.5 h-3.5" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

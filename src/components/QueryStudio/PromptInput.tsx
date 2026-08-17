@@ -7,6 +7,8 @@ import {
   Loader2,
   Wand2,
   Lightbulb,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { samplePresets, QueryPreset } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
@@ -14,11 +16,15 @@ import { cn } from "@/lib/utils";
 interface PromptInputProps {
   onGenerateAndRun: (promptText: string) => void;
   isLoading?: boolean;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 export const PromptInput: React.FC<PromptInputProps> = ({
   onGenerateAndRun,
   isLoading = false,
+  isMaximized = false,
+  onToggleMaximize,
 }) => {
   const [prompt, setPrompt] = useState(
     "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time"
@@ -42,41 +48,62 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
   return (
     <div className="w-full h-full min-h-0 bg-[#171412]/95 backdrop-blur-2xl border border-[#292524] rounded-2xl p-3.5 shadow-2xl flex flex-col justify-between overflow-hidden supabase-panel space-y-2.5">
-      {/* Preset Suggestions Bar */}
-      <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 shrink-0 scrollbar-none">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#3ecf8e] shrink-0 flex items-center gap-1 pl-0.5">
-          <Lightbulb className="w-3 h-3 text-amber-400" /> Presets:
-        </span>
+      {/* Preset Suggestions Bar & Maximize Trigger */}
+      <div className="flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none flex-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#3ecf8e] shrink-0 flex items-center gap-1 pl-0.5">
+            <Lightbulb className="w-3 h-3 text-amber-400" /> Presets:
+          </span>
 
-        {samplePresets.map((preset) => {
-          const isDanger = preset.isMutation;
-          const isGql = preset.category === "GraphQL";
+          {samplePresets.map((preset) => {
+            const isDanger = preset.isMutation;
+            const isGql = preset.category === "GraphQL";
 
-          return (
-            <button
-              key={preset.id}
-              onClick={() => selectPreset(preset)}
-              className={cn(
-                "px-2.5 py-1 rounded-xl text-[11px] font-medium whitespace-nowrap transition-all border shrink-0 flex items-center space-x-1.5 shadow-sm",
-                isDanger
-                  ? "bg-rose-950/30 hover:bg-rose-900/50 border-rose-800/40 text-rose-300 hover:border-rose-600"
-                  : isGql
-                  ? "bg-purple-950/30 hover:bg-purple-900/50 border-purple-800/40 text-purple-300 hover:border-purple-600"
-                  : "bg-[#141210] hover:bg-[#1c1917] border-[#292524] text-stone-300 hover:text-stone-100 hover:border-stone-600"
-              )}
-            >
-              <span>{preset.title}</span>
-              {isDanger && (
-                <span className="text-[8px] font-mono px-1 py-0.2 rounded-full bg-rose-500/20 text-rose-400 uppercase font-bold">
-                  MUTATION
-                </span>
-              )}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={preset.id}
+                onClick={() => selectPreset(preset)}
+                className={cn(
+                  "px-2.5 py-1 rounded-xl text-[11px] font-medium whitespace-nowrap transition-all border shrink-0 flex items-center space-x-1.5 shadow-sm",
+                  isDanger
+                    ? "bg-rose-950/30 hover:bg-rose-900/50 border-rose-800/40 text-rose-300 hover:border-rose-600"
+                    : isGql
+                    ? "bg-purple-950/30 hover:bg-purple-900/50 border-purple-800/40 text-purple-300 hover:border-purple-600"
+                    : "bg-[#141210] hover:bg-[#1c1917] border-[#292524] text-stone-300 hover:text-stone-100 hover:border-stone-600"
+                )}
+              >
+                <span>{preset.title}</span>
+                {isDanger && (
+                  <span className="text-[8px] font-mono px-1 py-0.2 rounded-full bg-rose-500/20 text-rose-400 uppercase font-bold">
+                    MUTATION
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {onToggleMaximize && (
+          <button
+            onClick={onToggleMaximize}
+            className={cn(
+              "p-1 rounded-xl border transition-all duration-200 shadow-sm shrink-0",
+              isMaximized
+                ? "bg-[#3ecf8e]/20 border-[#3ecf8e]/50 text-[#3ecf8e]"
+                : "bg-[#141210] border-[#292524] text-stone-400 hover:text-stone-100 hover:bg-[#1c1917]"
+            )}
+            title={isMaximized ? "Restore view (minimize)" : "Maximize Prompt Box"}
+          >
+            {isMaximized ? (
+              <Minimize2 className="w-3 h-3" />
+            ) : (
+              <Maximize2 className="w-3 h-3" />
+            )}
+          </button>
+        )}
       </div>
 
-      {/* Main Textarea Input Container (Flex-1 to fill the 40% height container) */}
+      {/* Main Textarea Input Container (Flex-1 to fill container) */}
       <div className="flex-1 min-h-0 flex flex-col justify-between rounded-xl bg-[#141210] border border-[#292524] focus-within:border-[#3ecf8e] focus-within:ring-2 focus-within:ring-[#3ecf8e]/20 transition-all p-2.5 shadow-inner overflow-hidden">
         <textarea
           value={prompt}

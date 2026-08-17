@@ -8,10 +8,10 @@ import {
   Zap,
   Cpu,
   Coins,
-  FileCode,
-  Terminal,
-  Sparkles,
   ShieldCheck,
+  Maximize2,
+  Minimize2,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +25,8 @@ interface SqlOutputProps {
   tokens?: number;
   cost?: string;
   dialect?: string;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 export const SqlOutput: React.FC<SqlOutputProps> = ({
@@ -37,6 +39,8 @@ export const SqlOutput: React.FC<SqlOutputProps> = ({
   tokens = 285,
   cost = "$0.0011",
   dialect = "PostgreSQL 16",
+  isMaximized = false,
+  onToggleMaximize,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -127,7 +131,7 @@ export const SqlOutput: React.FC<SqlOutputProps> = ({
           </div>
         </div>
 
-        {/* Copy & Dialect Info */}
+        {/* Action Buttons: Copy, Maximize & Dialect */}
         <div className="flex items-center space-x-2">
           <span className="hidden sm:inline-block font-mono text-[11px] text-stone-400 bg-[#141210] px-2.5 py-1 rounded-xl border border-[#292524]">
             {queryFormat === "sql" ? dialect : "GraphQL v16"}
@@ -155,6 +159,25 @@ export const SqlOutput: React.FC<SqlOutputProps> = ({
               </>
             )}
           </button>
+
+          {onToggleMaximize && (
+            <button
+              onClick={onToggleMaximize}
+              className={cn(
+                "p-1.5 rounded-xl border transition-all duration-200 shadow-sm",
+                isMaximized
+                  ? "bg-[#3ecf8e]/20 border-[#3ecf8e]/50 text-[#3ecf8e]"
+                  : "bg-[#1c1917] border-[#292524] text-stone-400 hover:text-stone-100 hover:bg-[#201d1a]"
+              )}
+              title={isMaximized ? "Restore view (minimize)" : "Maximize SQL Editor"}
+            >
+              {isMaximized ? (
+                <Minimize2 className="w-3.5 h-3.5" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
