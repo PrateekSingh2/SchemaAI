@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Database,
   Network,
@@ -13,51 +15,48 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ActiveTab = "schema" | "query" | "logs";
-
 interface TopbarProps {
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
-  onOpenSettings: () => void;
   dbName?: string;
   dbType?: string;
   isConnected?: boolean;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
-  activeTab,
-  setActiveTab,
-  onOpenSettings,
   dbName = "production_core_db",
   dbType = "PostgreSQL",
   isConnected = true,
 }) => {
+  const pathname = usePathname();
+
   const tabs = [
     {
-      id: "schema" as ActiveTab,
-      label: "Schema Explorer",
-      icon: Network,
-      badge: "6 tables",
-    },
-    {
-      id: "query" as ActiveTab,
+      href: "/",
       label: "Query Studio",
       icon: TerminalSquare,
       badge: "AI Copilot",
+      isActive: pathname === "/",
     },
     {
-      id: "logs" as ActiveTab,
+      href: "/schema",
+      label: "Schema Explorer",
+      icon: Network,
+      badge: "6 tables",
+      isActive: pathname.startsWith("/schema"),
+    },
+    {
+      href: "/logs",
       label: "Audit Logs",
       icon: ShieldCheck,
       badge: "Active Guard",
+      isActive: pathname.startsWith("/logs"),
     },
   ];
 
   return (
-    <header className="h-16 border-b border-[#292524] bg-[#171513]/90 backdrop-blur-2xl px-4 sm:px-6 flex items-center justify-between z-30 sticky top-0 shadow-sm">
+    <header className="h-16 border-b border-[#292524] bg-[#171513]/90 backdrop-blur-2xl px-4 sm:px-6 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm">
       {/* Brand & Logo */}
       <div className="flex items-center space-x-6">
-        <div className="flex items-center space-x-3 cursor-pointer group">
+        <Link href="/" className="flex items-center space-x-3 cursor-pointer group">
           <div className="relative flex items-center justify-center w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#3ecf8e] via-[#22c55e] to-emerald-600 shadow-md shadow-[#3ecf8e]/20 group-hover:shadow-[#3ecf8e]/35 transition-all duration-300">
             <Database className="w-4.5 h-4.5 text-[#0a1a12]" />
             <Sparkles className="w-3 h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
@@ -75,7 +74,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               Intelligent SQL/GraphQL Generator
             </p>
           </div>
-        </div>
+        </Link>
 
         <div className="hidden lg:block h-5 w-[1px] bg-[#292524]" />
 
@@ -83,14 +82,13 @@ export const Topbar: React.FC<TopbarProps> = ({
         <nav className="flex items-center space-x-1 bg-[#141210]/90 p-1 rounded-2xl border border-[#292524] shadow-inner">
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+              <Link
+                key={tab.href}
+                href={tab.href}
                 className={cn(
                   "relative flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200",
-                  isActive
+                  tab.isActive
                     ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md shadow-black/40"
                     : "text-stone-400 hover:text-stone-200 hover:bg-stone-800/40"
                 )}
@@ -98,16 +96,16 @@ export const Topbar: React.FC<TopbarProps> = ({
                 <Icon
                   className={cn(
                     "w-3.5 h-3.5 transition-colors",
-                    isActive ? "text-[#3ecf8e]" : "text-stone-400"
+                    tab.isActive ? "text-[#3ecf8e]" : "text-stone-400"
                   )}
                 />
-                <span className={isActive ? "font-semibold text-stone-100" : ""}>{tab.label}</span>
-                {isActive && (
+                <span className={tab.isActive ? "font-semibold text-stone-100" : ""}>{tab.label}</span>
+                {tab.isActive && (
                   <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.2 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono">
                     {tab.badge}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -116,8 +114,8 @@ export const Topbar: React.FC<TopbarProps> = ({
       {/* Right Controls: Connection Status, Settings & Avatar */}
       <div className="flex items-center space-x-3">
         {/* Database Connection Status Pill */}
-        <button
-          onClick={onOpenSettings}
+        <Link
+          href="/settings"
           className="hidden md:flex items-center space-x-2.5 px-3.5 py-1.5 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-xs text-stone-300 transition-all hover:bg-[#1c1917] group shadow-inner"
           title="Click to configure Database & LLM settings"
         >
@@ -141,17 +139,20 @@ export const Topbar: React.FC<TopbarProps> = ({
             </span>
           </div>
           <ChevronDown className="w-3 h-3 text-stone-500 group-hover:text-stone-300 transition-transform" />
-        </button>
+        </Link>
 
         {/* Settings Gear Button */}
-        <button
-          onClick={onOpenSettings}
-          className="relative p-2 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-stone-400 hover:text-[#3ecf8e] hover:bg-[#1c1917] transition-all duration-200 group shadow-inner"
+        <Link
+          href="/settings"
+          className={cn(
+            "relative p-2 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-stone-400 hover:text-[#3ecf8e] hover:bg-[#1c1917] transition-all duration-200 group shadow-inner",
+            pathname === "/settings" && "text-[#3ecf8e] border-[#3ecf8e]/40 bg-[#1c1917]"
+          )}
           title="Database & AI Settings"
         >
           <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3ecf8e] shadow-[0_0_6px_#3ecf8e]" />
-        </button>
+        </Link>
 
         {/* User Profile Avatar */}
         <div className="flex items-center space-x-2 pl-1">

@@ -84,9 +84,9 @@ export const SqlOutput: React.FC<SqlOutputProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden supabase-panel">
-      {/* Editor Header with macOS-style window controls & tabs */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#141210]/90 border-b border-[#292524] backdrop-blur-xl">
+    <div className="flex flex-col h-full min-h-0 rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden supabase-panel">
+      {/* Editor Header with window controls & tabs */}
+      <div className="flex items-center justify-between px-4 py-3 bg-[#141210]/90 border-b border-[#292524] backdrop-blur-xl shrink-0">
         <div className="flex items-center space-x-3">
           {/* Window dots */}
           <div className="flex items-center space-x-1.5 pr-2 border-r border-[#292524]">
@@ -158,8 +158,8 @@ export const SqlOutput: React.FC<SqlOutputProps> = ({
         </div>
       </div>
 
-      {/* Code Area */}
-      <div className="flex-1 p-3.5 overflow-auto bg-[#121110] relative font-mono select-text">
+      {/* Code Area with dedicated isolated scrolling */}
+      <div className="flex-1 min-h-0 p-3.5 overflow-y-auto overflow-x-auto bg-[#121110] relative font-mono select-text">
         {isGenerating ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 bg-black/65 backdrop-blur-md z-10">
             <div className="relative flex items-center justify-center">
@@ -176,7 +176,7 @@ export const SqlOutput: React.FC<SqlOutputProps> = ({
       </div>
 
       {/* Telemetry Footer */}
-      <div className="px-4 py-2.5 bg-[#141210]/90 border-t border-[#292524] flex flex-wrap items-center justify-between text-[11px] text-stone-400">
+      <div className="px-4 py-2.5 bg-[#141210]/90 border-t border-[#292524] flex flex-wrap items-center justify-between text-[11px] text-stone-400 shrink-0">
         <div className="flex items-center space-x-4">
           <span className="flex items-center space-x-1.5 text-stone-300 font-mono">
             <Zap className="w-3 h-3 text-amber-400" />

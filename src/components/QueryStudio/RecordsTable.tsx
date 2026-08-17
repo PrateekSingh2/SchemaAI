@@ -69,9 +69,9 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden supabase-panel">
+    <div className="flex flex-col h-full min-h-0 rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden supabase-panel">
       {/* Table Header Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-[#141210]/90 border-b border-[#292524] backdrop-blur-xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-[#141210]/90 border-b border-[#292524] backdrop-blur-xl shrink-0">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e] text-xs font-semibold">
             <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -123,8 +123,8 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
         </div>
       </div>
 
-      {/* Grid Table */}
-      <div className="flex-1 overflow-auto bg-[#121110] relative">
+      {/* Grid Table with dedicated isolated scroll container */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#121110] relative">
         {isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 bg-black/60 backdrop-blur-md z-10">
             <div className="w-8 h-8 border-2 border-[#3ecf8e]/20 border-t-[#3ecf8e] rounded-full animate-spin" />
@@ -204,7 +204,7 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
       </div>
 
       {/* Table Footer */}
-      <div className="px-4 py-2.5 bg-[#141210]/90 border-t border-[#292524] flex items-center justify-between text-[11px] text-stone-400">
+      <div className="px-4 py-2.5 bg-[#141210]/90 border-t border-[#292524] flex items-center justify-between text-[11px] text-stone-400 shrink-0">
         <span className="font-mono">Showing {filteredRecords.length} of {records.length} records</span>
         <span className="text-[10px] text-stone-500 font-mono">Buffered Query Cache</span>
       </div>
