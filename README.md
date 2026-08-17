@@ -236,5 +236,5 @@ This project is open-source and available under the [MIT License](LICENSE).
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/PrateekSingh2">Prateek Singh</a> and the SchemaAI team.</sub>
+  <sub>Built with ❤️ by <a href="https://github.com/PrateekSingh2">Prateek Singh</a> <a href="https://github.com/shivanshmax-Monster">Shivansh Sahu</a>.</sub>
 </div>
