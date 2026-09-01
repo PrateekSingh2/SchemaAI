@@ -6,7 +6,6 @@ import {
   Database,
   Key,
   Shield,
-  CheckCircle2,
   AlertCircle,
   Loader2,
   Zap,

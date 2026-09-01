@@ -15,7 +15,7 @@ export default function LogsPage() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
       <Topbar />
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <main className="flex-1 overflow-y-auto p-3 sm:p-6">
         <LogsView logs={logs} onRefresh={handleRefresh} />
       </main>
     </div>

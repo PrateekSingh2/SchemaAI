@@ -6,7 +6,6 @@ import {
   Database,
   Key,
   Shield,
-  CheckCircle2,
   AlertCircle,
   Loader2,
   Zap,
@@ -20,8 +19,6 @@ import {
   Check,
   CheckCheck,
   Server,
-  Terminal,
-  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DatabaseConfig } from "@/components/SettingsModal";
@@ -89,34 +86,35 @@ export default function SettingsPage() {
     <div className="h-screen w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
       <Topbar dbName={config.databaseName} dbType={config.dbType} />
 
-      <main className="flex-1 overflow-y-auto p-4 sm:p-8 max-w-5xl mx-auto w-full space-y-6">
+      <main className="flex-1 overflow-y-auto p-3 sm:p-8 max-w-5xl mx-auto w-full space-y-4 sm:space-y-6">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#292524]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-[#292524]">
           <div className="flex items-center space-x-3">
-            <div className="p-3 rounded-2xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]">
-              <Database className="w-6 h-6" />
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]">
+              <Database className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-stone-100 tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-stone-100 tracking-tight">
                 Project & Engine Configuration
               </h1>
-              <p className="text-xs text-stone-400">
+              <p className="text-[11px] sm:text-xs text-stone-400">
                 Manage relational schemas, API credentials, and query guard rails
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
             <button
               type="button"
               onClick={handleTestConnection}
               disabled={isTesting}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-all disabled:opacity-50 shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-all disabled:opacity-50 shadow-sm shrink-0"
             >
               {isTesting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#3ecf8e]" />
-                  <span>Testing Handshake...</span>
+                  <span className="hidden sm:inline">Testing Handshake...</span>
+                  <span className="sm:hidden">Testing...</span>
                 </>
               ) : (
                 <>
@@ -130,22 +128,22 @@ export default function SettingsPage() {
               type="button"
               onClick={handleSaveAndIntrospect}
               disabled={isSaving}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3ecf8e] to-[#22c55e] hover:from-[#34d399] hover:to-[#16a34a] text-[#0a1a12] font-bold text-xs shadow-lg shadow-[#3ecf8e]/20 transition-all disabled:opacity-50"
+              className="flex items-center space-x-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-r from-[#3ecf8e] to-[#22c55e] hover:from-[#34d399] hover:to-[#16a34a] text-[#0a1a12] font-bold text-xs shadow-lg shadow-[#3ecf8e]/20 transition-all disabled:opacity-50 shrink-0"
             >
               {isSaving ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0a1a12]" />
-                  <span>Syncing Schema...</span>
+                  <span>Syncing...</span>
                 </>
               ) : saveSuccess ? (
                 <>
                   <CheckCheck className="w-3.5 h-3.5 text-[#0a1a12]" />
-                  <span>Saved & Introspected!</span>
+                  <span>Saved!</span>
                 </>
               ) : (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  <span>Save & Introspect</span>
+                  <span>Save & Sync</span>
                 </>
               )}
             </button>
@@ -156,7 +154,7 @@ export default function SettingsPage() {
         {testResult.status !== "idle" && (
           <div
             className={cn(
-              "p-4 rounded-2xl border text-xs flex items-start space-x-3 animate-in fade-in duration-200 shadow-md",
+              "p-3.5 sm:p-4 rounded-2xl border text-xs flex items-start space-x-3 animate-in fade-in duration-200 shadow-md",
               testResult.status === "success"
                 ? "bg-[#3ecf8e]/10 border-[#3ecf8e]/30 text-[#3ecf8e]"
                 : "bg-rose-950/30 border-rose-500/30 text-rose-300"
@@ -170,7 +168,7 @@ export default function SettingsPage() {
             <div className="flex-1 space-y-1">
               <p className="font-medium">{testResult.message}</p>
               {testResult.latencyMs && (
-                <div className="flex items-center space-x-3 text-[11px] text-[#3ecf8e]/90 font-mono">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#3ecf8e]/90 font-mono">
                   <span>⚡ Roundtrip: {testResult.latencyMs}ms</span>
                   <span>•</span>
                   <span>Pool Status: 10/10 Available</span>
@@ -183,7 +181,7 @@ export default function SettingsPage() {
         )}
 
         {/* Tab Navigation Segmented Bar */}
-        <div className="flex items-center space-x-2 border-b border-[#292524] pb-0">
+        <div className="flex items-center space-x-1 sm:space-x-2 border-b border-[#292524] pb-0 overflow-x-auto scrollbar-none">
           {[
             { id: "database" as const, label: "Database Connection", icon: Database },
             { id: "ai" as const, label: "AI Engine & LLM", icon: Sparkles },
@@ -197,7 +195,7 @@ export default function SettingsPage() {
                 key={tab.id}
                 onClick={() => setActiveSettingsTab(tab.id)}
                 className={cn(
-                  "flex items-center space-x-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-all duration-200 -mb-[1px]",
+                  "flex items-center space-x-2 px-3 sm:px-4 py-2.5 text-xs font-medium border-b-2 transition-all duration-200 -mb-[1px] whitespace-nowrap shrink-0",
                   isActive
                     ? "border-[#3ecf8e] text-[#3ecf8e] font-semibold"
                     : "border-transparent text-stone-400 hover:text-stone-200"
@@ -211,7 +209,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Tab Contents */}
-        <div className="p-6 rounded-2xl bg-[#171412] border border-[#292524] shadow-xl supabase-panel space-y-6">
+        <div className="p-4 sm:p-6 rounded-2xl bg-[#171412] border border-[#292524] shadow-xl supabase-panel space-y-6">
           {/* TAB 1: DATABASE */}
           {activeSettingsTab === "database" && (
             <div className="space-y-5 animate-in fade-in duration-150">

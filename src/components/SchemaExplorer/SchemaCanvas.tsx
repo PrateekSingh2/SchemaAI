@@ -85,23 +85,23 @@ export const SchemaCanvas: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] bg-[#121110] overflow-hidden select-none">
+    <div className="relative w-full h-[calc(100dvh-3.5rem)] sm:h-[calc(100vh-4rem)] bg-[#121110] overflow-hidden select-none">
       {/* Top Floating Control Bar */}
-      <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-3">
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-wrap items-center gap-2 sm:gap-3 max-w-[calc(100vw-1.5rem)]">
         {/* Search Bar */}
         <div className="relative">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter tables or columns..."
-            className="w-64 pl-9 pr-3 py-2 rounded-2xl bg-[#1c1917]/90 backdrop-blur-xl border border-[#292524] text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-[#3ecf8e] focus:ring-1 focus:ring-[#3ecf8e] shadow-xl transition-all font-mono"
+            placeholder="Filter tables..."
+            className="w-48 sm:w-64 pl-9 pr-3 py-1.5 sm:py-2 rounded-2xl bg-[#1c1917]/90 backdrop-blur-xl border border-[#292524] text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-[#3ecf8e] focus:ring-1 focus:ring-[#3ecf8e] shadow-xl transition-all font-mono"
           />
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
+          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-2.5 sm:top-3" />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2 text-[10px] text-stone-400 hover:text-stone-200 bg-stone-800 px-1.5 py-0.5 rounded-md"
+              className="absolute right-2.5 top-1.5 sm:top-2 text-[10px] text-stone-400 hover:text-stone-200 bg-stone-800 px-1.5 py-0.5 rounded-md"
             >
               Clear
             </button>
@@ -109,24 +109,25 @@ export const SchemaCanvas: React.FC = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center space-x-2 bg-[#1c1917]/90 backdrop-blur-xl p-1 rounded-2xl border border-[#292524] shadow-xl">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 bg-[#1c1917]/90 backdrop-blur-xl p-1 rounded-2xl border border-[#292524] shadow-xl">
           <button
             onClick={handleResetLayout}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-stone-100 hover:bg-stone-800/60 transition-colors"
+            className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-stone-100 hover:bg-stone-800/60 transition-colors"
             title="Reset to default layout"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#3ecf8e]" />
-            <span>Reset View</span>
+            <span className="hidden sm:inline">Reset View</span>
+            <span className="sm:hidden text-[10px]">Reset</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#292524]" />
 
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-stone-400 font-mono">
+          <div className="flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 text-xs text-stone-400 font-mono">
             <Layers className="w-3.5 h-3.5 text-[#3ecf8e]" />
-            <span>{nodes.length} Tables</span>
+            <span>{nodes.length} <span className="hidden sm:inline">Tables</span></span>
             <span className="text-stone-700">•</span>
             <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
-            <span>{edges.length} Foreign Keys</span>
+            <span>{edges.length} <span className="hidden sm:inline">FKs</span></span>
           </div>
         </div>
       </div>
@@ -164,11 +165,11 @@ export const SchemaCanvas: React.FC = () => {
         />
         <Controls
           position="bottom-left"
-          className="!m-4 !border-[#292524] !bg-[#1c1917]/95 !shadow-2xl"
+          className="!m-2 sm:!m-4 !border-[#292524] !bg-[#1c1917]/95 !shadow-2xl"
         />
         <MiniMap
           position="bottom-right"
-          className="!m-4 !bg-[#1c1917]/95 !border-[#292524] !shadow-2xl"
+          className="hidden sm:block !m-4 !bg-[#1c1917]/95 !border-[#292524] !shadow-2xl"
           nodeColor="#292524"
           nodeStrokeColor="#3ecf8e"
           nodeStrokeWidth={2}
@@ -179,8 +180,8 @@ export const SchemaCanvas: React.FC = () => {
 
         {/* Selected Table Inspector Panel */}
         {selectedTableInfo && (
-          <Panel position="top-right" className="!mt-16 !mr-4 z-20">
-            <div className="w-80 rounded-2xl supabase-modal border border-[#292524] shadow-2xl p-4 text-stone-200 animate-in fade-in slide-in-from-right-4 duration-200">
+          <Panel position="top-right" className="!mt-14 sm:!mt-16 !mr-2 sm:!mr-4 z-20 max-w-[calc(100vw-1rem)]">
+            <div className="w-72 sm:w-80 rounded-2xl supabase-modal border border-[#292524] shadow-2xl p-3.5 sm:p-4 text-stone-200 animate-in fade-in slide-in-from-right-4 duration-200">
               <div className="flex items-center justify-between pb-3 border-b border-[#292524]">
                 <div className="flex items-center space-x-2">
                   <Database className="w-4 h-4 text-[#3ecf8e]" />
@@ -190,7 +191,7 @@ export const SchemaCanvas: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setSelectedTableInfo(null)}
-                  className="text-xs text-stone-400 hover:text-stone-100"
+                  className="text-xs text-stone-400 hover:text-stone-100 p-1 rounded-lg bg-stone-800/50"
                 >
                   ✕
                 </button>

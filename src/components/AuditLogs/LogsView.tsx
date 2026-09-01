@@ -81,19 +81,19 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
   };
 
   return (
-    <div className="flex-1 p-6 bg-[#121110] space-y-6 max-w-7xl mx-auto w-full">
+    <div className="flex-1 p-0 sm:p-2 bg-[#121110] space-y-4 sm:space-y-6 max-w-7xl mx-auto w-full">
       {/* Header & Metrics Overview */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-2xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]">
-              <Shield className="w-5 h-5" />
+            <div className="p-2 sm:p-2.5 rounded-2xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]">
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-stone-100 tracking-tight">
+              <h1 className="text-base sm:text-lg font-bold text-stone-100 tracking-tight">
                 Security & Query Audit Logs
               </h1>
-              <p className="text-xs text-stone-400">
+              <p className="text-[11px] sm:text-xs text-stone-400">
                 Cryptographic audit trail of all natural language prompts, generated SQL, and mutation overrides.
               </p>
             </div>
@@ -101,10 +101,10 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 self-end sm:self-auto">
           <button
             onClick={onRefresh}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-2xl bg-[#1c1917] border border-[#292524] hover:border-stone-700 text-stone-300 hover:text-stone-100 text-xs font-medium transition-all shadow-sm"
+            className="flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl bg-[#1c1917] border border-[#292524] hover:border-stone-700 text-stone-300 hover:text-stone-100 text-xs font-medium transition-all shadow-sm"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#3ecf8e]" />
             <span>Refresh Telemetry</span>
@@ -113,35 +113,35 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-[#171412] border border-[#292524] shadow-lg supabase-panel">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#171412] border border-[#292524] shadow-lg supabase-panel">
           <div className="flex items-center justify-between">
             <span className="text-xs text-stone-400 font-medium">Total Interceptions</span>
             <ShieldCheck className="w-4 h-4 text-[#3ecf8e]" />
           </div>
-          <p className="text-2xl font-bold font-mono text-stone-100 mt-2">
+          <p className="text-xl sm:text-2xl font-bold font-mono text-stone-100 mt-1.5 sm:mt-2">
             {logs.length} Queries
           </p>
           <span className="text-[10px] text-[#3ecf8e] font-mono">100% Policy Enforced</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#171412] border border-[#292524] shadow-lg supabase-panel">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#171412] border border-[#292524] shadow-lg supabase-panel">
           <div className="flex items-center justify-between">
             <span className="text-xs text-stone-400 font-medium">Blocked Mutations</span>
             <ShieldAlert className="w-4 h-4 text-rose-400" />
           </div>
-          <p className="text-2xl font-bold font-mono text-rose-400 mt-2">
+          <p className="text-xl sm:text-2xl font-bold font-mono text-rose-400 mt-1.5 sm:mt-2">
             {logs.filter((l) => l.status === "BLOCKED").length} Blocked
           </p>
           <span className="text-[10px] text-rose-400/80 font-mono">Zero Unauthorized Writes</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#171412] border border-[#292524] shadow-lg supabase-panel">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-[#171412] border border-[#292524] shadow-lg supabase-panel">
           <div className="flex items-center justify-between">
             <span className="text-xs text-stone-400 font-medium">Escalated Approvals</span>
             <AlertTriangle className="w-4 h-4 text-amber-400" />
           </div>
-          <p className="text-2xl font-bold font-mono text-amber-300 mt-2">
+          <p className="text-xl sm:text-2xl font-bold font-mono text-amber-300 mt-1.5 sm:mt-2">
             {logs.filter((l) => l.status === "MUTATION_APPROVED").length} Granted
           </p>
           <span className="text-[10px] text-amber-400/80 font-mono">Signed Admin Overrides</span>
@@ -149,14 +149,14 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-[#171412] border border-[#292524] shadow-md supabase-panel">
-        <div className="flex items-center space-x-2 flex-1 min-w-[240px]">
-          <div className="relative w-full max-w-md">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-2xl bg-[#171412] border border-[#292524] shadow-md supabase-panel">
+        <div className="flex items-center space-x-2 flex-1 w-full min-w-0">
+          <div className="relative w-full sm:max-w-md">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by prompt, SQL, IP or log ID..."
+              placeholder="Search prompt, SQL, IP or ID..."
               className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-[#3ecf8e] font-mono shadow-inner"
             />
             <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
@@ -164,7 +164,7 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
         </div>
 
         {/* Status Segmented Buttons */}
-        <div className="flex items-center space-x-1 p-1 rounded-xl bg-[#141210] border border-[#292524] text-xs font-medium shadow-inner">
+        <div className="flex items-center space-x-1 p-1 rounded-xl bg-[#141210] border border-[#292524] text-xs font-medium shadow-inner overflow-x-auto scrollbar-none shrink-0">
           {[
             { id: "ALL", label: "ALL" },
             { id: "SUCCESS", label: "SUCCESS" },
@@ -175,7 +175,7 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
               key={status.id}
               onClick={() => setStatusFilter(status.id)}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all text-xs font-medium",
+                "px-2.5 py-1.5 rounded-lg transition-all text-[11px] sm:text-xs font-medium whitespace-nowrap shrink-0",
                 statusFilter === status.id
                   ? "bg-[#1c1917] text-[#3ecf8e] font-semibold border border-[#3ecf8e]/30 shadow-sm"
                   : "text-stone-400 hover:text-stone-200"

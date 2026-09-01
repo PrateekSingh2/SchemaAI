@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 interface RecordsTableProps {
   columns: string[];
-  records: Array<Record<string, any>>;
+  records: Array<Record<string, unknown>>;
   isLoading?: boolean;
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
@@ -75,62 +75,69 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden supabase-panel">
-      {/* Table Header Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-[#141210]/90 border-b border-[#292524] backdrop-blur-xl shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e] text-xs font-semibold">
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Query Results</span>
+    <div className="flex flex-col h-full min-h-0 min-w-0 rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden supabase-panel">
+      {/* Table Header Controls - Non-breaking flex layout */}
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 bg-[#141210]/90 border-b border-[#292524] backdrop-blur-xl shrink-0 min-w-0">
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className="flex items-center space-x-1.5 px-2 py-1 rounded-xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e] text-xs font-semibold shrink-0">
+            <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Query Results</span>
+            <span className="sm:hidden">Results</span>
           </div>
 
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-[#1c1917] border border-[#292524] text-[11px] font-mono text-stone-300 shadow-inner">
-            <span className="w-2 h-2 rounded-full bg-[#3ecf8e]" />
+          <div className="hidden md:flex items-center space-x-1 px-2 py-1 rounded-xl bg-[#1c1917] border border-[#292524] text-[10px] font-mono text-stone-300 shadow-inner shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#3ecf8e]" />
             <span>
-              {filteredRecords.length} {filteredRecords.length === 1 ? "row" : "rows"} fetched
+              {filteredRecords.length} {filteredRecords.length === 1 ? "row" : "rows"}
             </span>
           </div>
+
+          {downloadSuccess && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3ecf8e]/20 text-[#3ecf8e] font-mono animate-in fade-in duration-200 shrink-0">
+              Exported!
+            </span>
+          )}
         </div>
 
         {/* Search, Export & Maximize Buttons */}
-        <div className="flex items-center space-x-2">
-          <div className="relative">
+        <div className="flex items-center space-x-1.5 shrink-0 min-w-0">
+          <div className="relative w-24 sm:w-36 md:w-44">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search in results..."
-              className="w-36 sm:w-48 pl-7 pr-2.5 py-1 rounded-xl bg-[#1c1917] border border-[#292524] text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-[#3ecf8e] font-mono shadow-inner"
+              placeholder="Search..."
+              className="w-full pl-6 pr-2 py-1 rounded-xl bg-[#1c1917] border border-[#292524] text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-[#3ecf8e] font-mono shadow-inner"
             />
-            <Search className="w-3 h-3 text-stone-400 absolute left-2.5 top-2" />
+            <Search className="w-3 h-3 text-stone-400 absolute left-2 top-2 shrink-0" />
           </div>
 
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 shrink-0">
             <button
               onClick={exportCSV}
               disabled={records.length === 0}
-              className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-colors disabled:opacity-40 shadow-sm"
+              className="flex items-center space-x-1 px-2 py-1 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-colors disabled:opacity-40 shadow-sm shrink-0"
               title="Export as CSV"
             >
-              <Download className="w-3 h-3 text-stone-400" />
-              <span>CSV</span>
+              <Download className="w-3 h-3 text-stone-400 shrink-0" />
+              <span className="hidden sm:inline">CSV</span>
             </button>
 
             <button
               onClick={exportJSON}
               disabled={records.length === 0}
-              className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-colors disabled:opacity-40 shadow-sm"
+              className="flex items-center space-x-1 px-2 py-1 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-colors disabled:opacity-40 shadow-sm shrink-0"
               title="Export as JSON"
             >
-              <FileJson className="w-3 h-3 text-stone-400" />
-              <span>JSON</span>
+              <FileJson className="w-3 h-3 text-stone-400 shrink-0" />
+              <span className="hidden sm:inline">JSON</span>
             </button>
 
             {onToggleMaximize && (
               <button
                 onClick={onToggleMaximize}
                 className={cn(
-                  "p-1.5 rounded-xl border transition-all duration-200 shadow-sm ml-1",
+                  "p-1 sm:p-1.5 rounded-xl border transition-all duration-200 shadow-sm shrink-0",
                   isMaximized
                     ? "bg-[#3ecf8e]/20 border-[#3ecf8e]/50 text-[#3ecf8e]"
                     : "bg-[#1c1917] border-[#292524] text-stone-400 hover:text-stone-100 hover:bg-[#201d1a]"
@@ -149,7 +156,7 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
       </div>
 
       {/* Grid Table with dedicated isolated scroll container */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#121110] relative">
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-auto bg-[#121110] relative">
         {isLoading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 bg-black/60 backdrop-blur-md z-10">
             <div className="w-8 h-8 border-2 border-[#3ecf8e]/20 border-t-[#3ecf8e] rounded-full animate-spin" />
@@ -160,20 +167,20 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
         ) : null}
 
         {filteredRecords.length > 0 ? (
-          <table className="w-full text-left border-collapse text-xs font-mono">
+          <table className="min-w-full w-full text-left border-collapse text-xs font-mono">
             <thead>
               <tr className="sticky top-0 bg-[#171412]/95 border-b border-[#292524] z-10 backdrop-blur-xl">
-                <th className="w-10 px-3 py-2.5 text-stone-500 text-center font-normal border-r border-[#292524] bg-[#141210]">
+                <th className="w-8 sm:w-10 px-2.5 sm:px-3 py-2 text-stone-500 text-center font-normal border-r border-[#292524] bg-[#141210] shrink-0">
                   #
                 </th>
                 {columns.map((col) => (
                   <th
                     key={col}
-                    className="px-3.5 py-2.5 font-semibold text-stone-300 tracking-wider text-[11px] border-r border-[#292524] uppercase group cursor-pointer hover:bg-stone-800/40 transition-colors"
+                    className="px-3 py-2 font-semibold text-stone-300 tracking-wider text-[10px] sm:text-[11px] border-r border-[#292524] uppercase group cursor-pointer hover:bg-stone-800/40 transition-colors whitespace-nowrap"
                   >
                     <div className="flex items-center justify-between space-x-1">
                       <span className="truncate">{col}</span>
-                      <ArrowUpDown className="w-3 h-3 text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </div>
                   </th>
                 ))}
@@ -185,7 +192,7 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
                   key={rowIdx}
                   className="hover:bg-[#1a1715] transition-colors group"
                 >
-                  <td className="w-10 px-3 py-2 text-stone-600 text-center font-mono text-[11px] border-r border-[#292524]/60 bg-[#141210]/60 select-none">
+                  <td className="w-8 sm:w-10 px-2.5 sm:px-3 py-1.5 sm:py-2 text-stone-600 text-center font-mono text-[10px] sm:text-[11px] border-r border-[#292524]/60 bg-[#141210]/60 select-none shrink-0">
                     {rowIdx + 1}
                   </td>
                   {columns.map((col) => {
@@ -198,14 +205,14 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
                       <td
                         key={col}
                         className={cn(
-                          "px-3.5 py-2 text-stone-200 border-r border-[#292524]/40 truncate max-w-[220px]",
+                          "px-3 py-1.5 sm:py-2 text-stone-200 border-r border-[#292524]/40 truncate max-w-[200px] whitespace-nowrap",
                           isNum && "text-amber-300 font-medium",
                           isBool && (cellValue ? "text-[#3ecf8e] font-medium" : "text-rose-400 font-medium")
                         )}
                         title={String(cellValue)}
                       >
                         {isStatus ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/20">
+                          <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-semibold uppercase bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/20">
                             {String(cellValue)}
                           </span>
                         ) : typeof cellValue === "object" ? (
@@ -222,16 +229,16 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
           </table>
         ) : (
           <div className="flex flex-col items-center justify-center h-full py-12 text-stone-500 space-y-2">
-            <Table2 className="w-8 h-8 stroke-[1.5] text-stone-600" />
+            <Table2 className="w-7 h-7 stroke-[1.5] text-stone-600" />
             <p className="text-xs font-mono">No records match the current filter.</p>
           </div>
         )}
       </div>
 
       {/* Table Footer */}
-      <div className="px-4 py-2.5 bg-[#141210]/90 border-t border-[#292524] flex items-center justify-between text-[11px] text-stone-400 shrink-0">
-        <span className="font-mono">Showing {filteredRecords.length} of {records.length} records</span>
-        <span className="text-[10px] text-stone-500 font-mono">Buffered Query Cache</span>
+      <div className="px-3 sm:px-4 py-2 bg-[#141210]/90 border-t border-[#292524] flex items-center justify-between text-[10px] sm:text-[11px] text-stone-400 shrink-0 min-w-0">
+        <span className="font-mono truncate">Showing {filteredRecords.length} of {records.length} records</span>
+        <span className="text-[10px] text-stone-500 font-mono shrink-0 hidden sm:inline">Buffered Query Cache</span>
       </div>
     </div>
   );

@@ -52,6 +52,21 @@ body {
   background: #44403c;
 }
 
+/* Hide scrollbar utility for clean mobile horizontal sliders */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Dynamic mobile viewport fix */
+.h-screen-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* Polymorphic & Glassmorphism Surfaces */
 .supabase-panel {
   background: rgba(28, 25, 23, 0.75);
@@ -189,3 +204,4 @@ body {
   min-width: 2.2rem;
   padding-right: 1.25rem;
 }
+

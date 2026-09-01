@@ -7,18 +7,20 @@ import { SqlOutput } from "@/components/QueryStudio/SqlOutput";
 import { RecordsTable } from "@/components/QueryStudio/RecordsTable";
 import { PromptInput } from "@/components/QueryStudio/PromptInput";
 import {
-  initialAuditLogs,
-  AuditLogEntry,
   detectMutation,
   generateMockResult,
 } from "@/lib/mockData";
-import { GripVertical, GripHorizontal, RotateCcw, Maximize2 } from "lucide-react";
+import { GripVertical, GripHorizontal, Code2, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type MaximizedSection = null | "sql" | "prompt" | "records";
+type MobileWorkbenchTab = "prompt" | "sql" | "records";
 
 export default function QueryStudioPage() {
   const [isMutationModalOpen, setIsMutationModalOpen] = useState(false);
+
+  // Mobile view tab ("prompt" | "sql" | "records")
+  const [mobileTab, setMobileTab] = useState<MobileWorkbenchTab>("prompt");
 
   // Split view percentages (Default: 40% left width, 60% top left height)
   const [leftWidthPct, setLeftWidthPct] = useState(40);
@@ -84,18 +86,18 @@ export default function QueryStudioPage() {
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isDraggingHorizontal.current && containerRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect();
-      const newWidthPct = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      if (newWidthPct >= 20 && newWidthPct <= 75) {
-        setLeftWidthPct(Math.round(newWidthPct));
-      }
+      const rawPct = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+      // Clamp between 25% and 75% to prevent collapse
+      const clampedPct = Math.min(Math.max(rawPct, 25), 75);
+      setLeftWidthPct(Math.round(clampedPct));
     }
 
     if (isDraggingVertical.current && leftColumnRef.current) {
       const leftColRect = leftColumnRef.current.getBoundingClientRect();
-      const newHeightPct = ((e.clientY - leftColRect.top) / leftColRect.height) * 100;
-      if (newHeightPct >= 25 && newHeightPct <= 80) {
-        setTopHeightPct(Math.round(newHeightPct));
-      }
+      const rawPct = ((e.clientY - leftColRect.top) / leftColRect.height) * 100;
+      // Clamp between 25% and 75% to prevent collapse
+      const clampedPct = Math.min(Math.max(rawPct, 25), 75);
+      setTopHeightPct(Math.round(clampedPct));
     }
   }, []);
 
@@ -131,6 +133,9 @@ export default function QueryStudioPage() {
   const handleGenerateAndRun = async (promptText: string) => {
     setCurrentPrompt(promptText);
     setIsGenerating(true);
+
+    // Switch mobile tab to SQL Output automatically on generate
+    setMobileTab("sql");
 
     await new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -184,89 +189,79 @@ export default function QueryStudioPage() {
   const isCustomized = leftWidthPct !== 40 || topHeightPct !== 60 || maximizedSection !== null;
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
+    <div className="h-screen-dvh w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
       {/* Top Application Header */}
       <Topbar
         dbName={dbConfig.databaseName}
         dbType={dbConfig.dbType}
         isConnected={true}
+        isLayoutCustomized={isCustomized}
+        onResetLayout={handleResetSplit}
       />
 
-      {/* Main Workspace Area with Drag Expanders */}
+      {/* Main Workspace Area */}
       <main
         ref={containerRef}
-        className="flex-1 min-h-0 flex flex-col lg:flex-row gap-0 p-3 sm:p-4 overflow-hidden relative"
+        className="flex-1 min-h-0 min-w-0 p-2 sm:p-3 overflow-hidden relative"
       >
-        {/* Quick Reset Layout Pill (shows when customized) */}
-        {isCustomized && (
-          <div className="absolute top-5 right-6 z-20">
-            <button
-              onClick={handleResetSplit}
-              className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#1c1917]/95 border border-[#3ecf8e]/40 text-[#3ecf8e] text-[11px] font-medium shadow-lg hover:bg-[#201d1a] transition-all backdrop-blur-md"
-              title="Reset to default 40:60 split layout"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Split (40:60)</span>
-            </button>
-          </div>
-        )}
-
-        {/* CASE 1: FULL MAXIMIZED VIEW FOR A SECTION */}
-        {maximizedSection === "sql" && (
-          <div className="w-full h-full min-h-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
-            <SqlOutput
-              sql={currentSql}
-              graphql={currentGraphql}
-              isGenerating={isGenerating}
-              queryFormat={queryFormat}
-              setQueryFormat={setQueryFormat}
-              executionTime={stats.executionTime}
-              tokens={stats.tokens}
-              cost={stats.cost}
-              dialect={`${dbConfig.dbType} 16`}
-              isMaximized={true}
-              onToggleMaximize={() => toggleMaximize("sql")}
-            />
-          </div>
-        )}
-
-        {maximizedSection === "prompt" && (
-          <div className="w-full h-full min-h-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
+        {/* --- MOBILE WORKBENCH LAYOUT (< lg screens): HORIZONTALLY SPLIT IN TWO HALVES --- */}
+        <div className="lg:hidden w-full h-full min-h-0 min-w-0 flex flex-col gap-1.5 overflow-hidden">
+          {/* Top Half (50% Height): Prompt Writing Box */}
+          <div className="h-[48%] min-h-0 min-w-0 flex flex-col overflow-hidden">
             <PromptInput
               onGenerateAndRun={handleGenerateAndRun}
               isLoading={isGenerating}
-              isMaximized={true}
-              onToggleMaximize={() => toggleMaximize("prompt")}
+              isMaximized={false}
             />
           </div>
-        )}
 
-        {maximizedSection === "records" && (
-          <div className="w-full h-full min-h-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
-            <RecordsTable
-              columns={currentColumns}
-              records={currentRecords}
-              isLoading={isGenerating}
-              isMaximized={true}
-              onToggleMaximize={() => toggleMaximize("records")}
-            />
+          {/* Horizontal Split Line Divider */}
+          <div className="h-1 my-0.5 flex items-center justify-center shrink-0">
+            <div className="w-16 h-1 rounded-full bg-[#292524]" />
           </div>
-        )}
 
-        {/* CASE 2: DEFAULT / RESIZABLE SPLIT VIEW */}
-        {maximizedSection === null && (
-          <>
-            {/* Left Column (Default 40% Width, resizable via drag handle) */}
-            <div
-              ref={leftColumnRef}
-              style={{ width: `${leftWidthPct}%` }}
-              className="h-full min-h-0 flex flex-col overflow-hidden transition-none"
-            >
-              {/* Top Section of Left Column: SQL Output (Default 60% Height) */}
-              <div
-                style={{ height: `${topHeightPct}%` }}
-                className="min-h-0 flex flex-col overflow-hidden"
-              >
+          {/* Bottom Half (50% Height): Generated SQL Query Output & Data Grid Switcher */}
+          <div className="h-[50%] flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden relative">
+            {/* Mobile Bottom-Pane View Selector Pill */}
+            <div className="flex items-center justify-between pb-1.5 shrink-0">
+              <div className="flex items-center space-x-1 bg-[#1c1917] p-0.5 rounded-xl border border-[#292524] text-[11px] font-medium shadow-inner">
+                <button
+                  onClick={() => setMobileTab("sql")}
+                  className={cn(
+                    "flex items-center space-x-1 px-2.5 py-0.5 rounded-lg transition-all",
+                    mobileTab === "sql"
+                      ? "bg-[#141210] text-[#3ecf8e] font-semibold border border-[#3ecf8e]/30 shadow-sm"
+                      : "text-stone-400 hover:text-stone-200"
+                  )}
+                >
+                  <Code2 className="w-3 h-3" />
+                  <span>Generated SQL</span>
+                </button>
+                <button
+                  onClick={() => setMobileTab("records")}
+                  className={cn(
+                    "flex items-center space-x-1 px-2.5 py-0.5 rounded-lg transition-all",
+                    mobileTab === "records"
+                      ? "bg-[#141210] text-[#3ecf8e] font-semibold border border-[#3ecf8e]/30 shadow-sm"
+                      : "text-stone-400 hover:text-stone-200"
+                  )}
+                >
+                  <Table2 className="w-3 h-3" />
+                  <span>Results Grid ({currentRecords.length})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Pane Output Content */}
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+              {mobileTab === "records" ? (
+                <RecordsTable
+                  columns={currentColumns}
+                  records={currentRecords}
+                  isLoading={isGenerating}
+                  isMaximized={false}
+                />
+              ) : (
                 <SqlOutput
                   sql={currentSql}
                   graphql={currentGraphql}
@@ -278,65 +273,141 @@ export default function QueryStudioPage() {
                   cost={stats.cost}
                   dialect={`${dbConfig.dbType} 16`}
                   isMaximized={false}
-                  onToggleMaximize={() => toggleMaximize("sql")}
                 />
-              </div>
-
-              {/* Vertical Boundary Expander / Drag Handle between SQL and Prompt */}
-              <div
-                onMouseDown={handleMouseDownVertical}
-                onDoubleClick={() => setTopHeightPct(60)}
-                className="group h-3 my-0.5 cursor-row-resize flex items-center justify-center relative select-none shrink-0"
-                title="Drag to resize height | Double-click to reset (60:40)"
-              >
-                <div className="w-full h-[2px] bg-[#292524] group-hover:bg-[#3ecf8e]/60 transition-colors" />
-                <div className="absolute px-3 py-0.5 rounded-full bg-[#1c1917] border border-[#292524] group-hover:border-[#3ecf8e]/60 text-stone-500 group-hover:text-[#3ecf8e] transition-all shadow-sm">
-                  <GripHorizontal className="w-3 h-3" />
-                </div>
-              </div>
-
-              {/* Bottom Section of Left Column: Prompt Input (Default 40% Height) */}
-              <div
-                style={{ height: `calc(${100 - topHeightPct}% - 0.75rem)` }}
-                className="min-h-0 flex flex-col overflow-hidden"
-              >
-                <PromptInput
-                  onGenerateAndRun={handleGenerateAndRun}
-                  isLoading={isGenerating}
-                  isMaximized={false}
-                  onToggleMaximize={() => toggleMaximize("prompt")}
-                />
-              </div>
+              )}
             </div>
+          </div>
+        </div>
 
-            {/* Horizontal Boundary Expander / Drag Handle between Left and Right Columns */}
-            <div
-              onMouseDown={handleMouseDownHorizontal}
-              onDoubleClick={() => setLeftWidthPct(40)}
-              className="group w-3.5 mx-0.5 hidden lg:flex flex-col items-center justify-center cursor-col-resize relative select-none shrink-0"
-              title="Drag to resize columns | Double-click to reset (40:60)"
-            >
-              <div className="h-full w-[2px] bg-[#292524] group-hover:bg-[#3ecf8e]/60 transition-colors" />
-              <div className="absolute py-3 px-0.5 rounded-full bg-[#1c1917] border border-[#292524] group-hover:border-[#3ecf8e]/60 text-stone-500 group-hover:text-[#3ecf8e] transition-all shadow-sm">
-                <GripVertical className="w-3 h-3" />
-              </div>
+        {/* --- DESKTOP RESIZABLE SPLIT WORKBENCH (≥ lg screens) --- */}
+        <div className="hidden lg:flex w-full h-full min-h-0 min-w-0 flex-row gap-0">
+          {/* CASE 1: FULL MAXIMIZED VIEW FOR A SECTION */}
+          {maximizedSection === "sql" && (
+            <div className="w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
+              <SqlOutput
+                sql={currentSql}
+                graphql={currentGraphql}
+                isGenerating={isGenerating}
+                queryFormat={queryFormat}
+                setQueryFormat={setQueryFormat}
+                executionTime={stats.executionTime}
+                tokens={stats.tokens}
+                cost={stats.cost}
+                dialect={`${dbConfig.dbType} 16`}
+                isMaximized={true}
+                onToggleMaximize={() => toggleMaximize("sql")}
+              />
             </div>
+          )}
 
-            {/* Right Column (Default 60% Width, resizable via drag handle) */}
-            <div
-              style={{ width: `calc(${100 - leftWidthPct}% - 1rem)` }}
-              className="h-full min-h-0 flex flex-col overflow-hidden"
-            >
+          {maximizedSection === "prompt" && (
+            <div className="w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
+              <PromptInput
+                onGenerateAndRun={handleGenerateAndRun}
+                isLoading={isGenerating}
+                isMaximized={true}
+                onToggleMaximize={() => toggleMaximize("prompt")}
+              />
+            </div>
+          )}
+
+          {maximizedSection === "records" && (
+            <div className="w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
               <RecordsTable
                 columns={currentColumns}
                 records={currentRecords}
                 isLoading={isGenerating}
-                isMaximized={false}
+                isMaximized={true}
                 onToggleMaximize={() => toggleMaximize("records")}
               />
             </div>
-          </>
-        )}
+          )}
+
+          {/* CASE 2: DEFAULT / RESIZABLE SPLIT VIEW */}
+          {maximizedSection === null && (
+            <>
+              {/* Left Column (Default 40% Width, resizable via drag handle) */}
+              <div
+                ref={leftColumnRef}
+                style={{ width: `${leftWidthPct}%` }}
+                className="h-full min-h-0 min-w-[260px] flex flex-col overflow-hidden transition-none shrink-0"
+              >
+                {/* Top Section of Left Column: SQL Output (Default 60% Height) */}
+                <div
+                  style={{ height: `${topHeightPct}%` }}
+                  className="min-h-[140px] min-w-0 flex flex-col overflow-hidden"
+                >
+                  <SqlOutput
+                    sql={currentSql}
+                    graphql={currentGraphql}
+                    isGenerating={isGenerating}
+                    queryFormat={queryFormat}
+                    setQueryFormat={setQueryFormat}
+                    executionTime={stats.executionTime}
+                    tokens={stats.tokens}
+                    cost={stats.cost}
+                    dialect={`${dbConfig.dbType} 16`}
+                    isMaximized={false}
+                    onToggleMaximize={() => toggleMaximize("sql")}
+                  />
+                </div>
+
+                {/* Vertical Boundary Expander / Drag Handle between SQL and Prompt */}
+                <div
+                  onMouseDown={handleMouseDownVertical}
+                  onDoubleClick={() => setTopHeightPct(60)}
+                  className="group h-2.5 my-0.5 cursor-row-resize flex items-center justify-center relative select-none shrink-0"
+                  title="Drag to resize height | Double-click to reset (60:40)"
+                >
+                  <div className="w-full h-[2px] bg-[#292524] group-hover:bg-[#3ecf8e]/60 transition-colors" />
+                  <div className="absolute px-2.5 py-0.5 rounded-full bg-[#1c1917] border border-[#292524] group-hover:border-[#3ecf8e]/60 text-stone-500 group-hover:text-[#3ecf8e] transition-all shadow-sm">
+                    <GripHorizontal className="w-2.5 h-2.5" />
+                  </div>
+                </div>
+
+                {/* Bottom Section of Left Column: Prompt Input (Default 40% Height) */}
+                <div
+                  style={{ height: `calc(${100 - topHeightPct}% - 0.625rem)` }}
+                  className="min-h-[120px] min-w-0 flex flex-col overflow-hidden"
+                >
+                  <PromptInput
+                    onGenerateAndRun={handleGenerateAndRun}
+                    isLoading={isGenerating}
+                    isMaximized={false}
+                    onToggleMaximize={() => toggleMaximize("prompt")}
+                  />
+                </div>
+              </div>
+
+              {/* Horizontal Boundary Expander / Drag Handle between Left and Right Columns */}
+              <div
+                onMouseDown={handleMouseDownHorizontal}
+                onDoubleClick={() => setLeftWidthPct(40)}
+                className="group w-3 mx-0.5 hidden lg:flex flex-col items-center justify-center cursor-col-resize relative select-none shrink-0"
+                title="Drag to resize columns | Double-click to reset (40:60)"
+              >
+                <div className="h-full w-[2px] bg-[#292524] group-hover:bg-[#3ecf8e]/60 transition-colors" />
+                <div className="absolute py-2.5 px-0.5 rounded-full bg-[#1c1917] border border-[#292524] group-hover:border-[#3ecf8e]/60 text-stone-500 group-hover:text-[#3ecf8e] transition-all shadow-sm">
+                  <GripVertical className="w-2.5 h-2.5" />
+                </div>
+              </div>
+
+              {/* Right Column (Default 60% Width, resizable via drag handle) */}
+              <div
+                style={{ width: `calc(${100 - leftWidthPct}% - 0.75rem)` }}
+                className="h-full min-h-0 min-w-[280px] flex flex-col overflow-hidden flex-1"
+              >
+                <RecordsTable
+                  columns={currentColumns}
+                  records={currentRecords}
+                  isLoading={isGenerating}
+                  isMaximized={false}
+                  onToggleMaximize={() => toggleMaximize("records")}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </main>
 
       {/* Security Mutation Interception Modal */}
@@ -351,3 +422,4 @@ export default function QueryStudioPage() {
     </div>
   );
 }
+

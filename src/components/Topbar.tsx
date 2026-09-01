@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,6 +12,10 @@ import {
   Sparkles,
   Server,
   ChevronDown,
+  RotateCcw,
+  Menu,
+  X,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,14 +23,19 @@ interface TopbarProps {
   dbName?: string;
   dbType?: string;
   isConnected?: boolean;
+  isLayoutCustomized?: boolean;
+  onResetLayout?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
   dbName = "production_core_db",
   dbType = "PostgreSQL",
   isConnected = true,
+  isLayoutCustomized = false,
+  onResetLayout,
 }) => {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const tabs = [
     {
@@ -53,114 +62,208 @@ export const Topbar: React.FC<TopbarProps> = ({
   ];
 
   return (
-    <header className="h-16 border-b border-[#292524] bg-[#171513]/90 backdrop-blur-2xl px-4 sm:px-6 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm">
-      {/* Brand & Logo */}
-      <div className="flex items-center space-x-6">
-        <Link href="/" className="flex items-center space-x-3 cursor-pointer group">
-          <div className="relative flex items-center justify-center w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#3ecf8e] via-[#22c55e] to-emerald-600 shadow-md shadow-[#3ecf8e]/20 group-hover:shadow-[#3ecf8e]/35 transition-all duration-300">
-            <Database className="w-4.5 h-4.5 text-[#0a1a12]" />
-            <Sparkles className="w-3 h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-base tracking-tight bg-gradient-to-r from-stone-100 via-stone-200 to-[#3ecf8e] bg-clip-text text-transparent">
-                SchemaAI
-              </span>
+    <>
+      <header className="h-14 sm:h-16 border-b border-[#292524] bg-[#171513]/90 backdrop-blur-2xl px-3 sm:px-6 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm min-w-0">
+        {/* Brand & Logo */}
+        <div className="flex items-center space-x-2.5 sm:space-x-6 min-w-0">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-1.5 rounded-xl bg-[#141210] border border-[#292524] text-stone-300 hover:text-stone-100 hover:bg-[#1c1917] transition-all"
+            aria-label="Toggle Navigation Menu"
+          >
+            {mobileMenuOpen ? <X className="w-4 h-4 text-stone-200" /> : <Menu className="w-4 h-4 text-stone-200" />}
+          </button>
+
+          <Link href="/" className="flex items-center space-x-2 sm:space-x-3 cursor-pointer group shrink-0">
+            <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-[#3ecf8e] via-[#22c55e] to-emerald-600 shadow-md shadow-[#3ecf8e]/20 group-hover:shadow-[#3ecf8e]/35 transition-all duration-300">
+              <Database className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#0a1a12]" />
+              <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
             </div>
-            <p className="text-[11px] text-stone-400 hidden sm:block font-medium">
-              Intelligent Query Generator
-            </p>
-          </div>
-        </Link>
+            <div className="min-w-0">
+              <div className="flex items-center space-x-1.5">
+                <span className="font-bold text-sm sm:text-base tracking-tight bg-gradient-to-r from-stone-100 via-stone-200 to-[#3ecf8e] bg-clip-text text-transparent">
+                  SchemaAI
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-stone-400 hidden lg:block font-medium truncate">
+                Intelligent Query Generator
+              </p>
+            </div>
+          </Link>
 
-        <div className="hidden lg:block h-5 w-[1px] bg-[#292524]" />
+          <div className="hidden md:block h-5 w-[1px] bg-[#292524] shrink-0" />
 
-        {/* Tab Navigation Segmented Control */}
-        <nav className="flex items-center space-x-1 bg-[#141210]/90 p-1 rounded-2xl border border-[#292524] shadow-inner">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "relative flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200",
-                  tab.isActive
-                    ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md shadow-black/40"
-                    : "text-stone-400 hover:text-stone-200 hover:bg-stone-800/40"
-                )}
-              >
-                <Icon
+          {/* Desktop/Tablet Tab Navigation */}
+          <nav className="hidden md:flex items-center space-x-1 bg-[#141210]/90 p-1 rounded-2xl border border-[#292524] shadow-inner shrink-0">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
                   className={cn(
-                    "w-3.5 h-3.5 transition-colors",
-                    tab.isActive ? "text-[#3ecf8e]" : "text-stone-400"
+                    "relative flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 shrink-0",
+                    tab.isActive
+                      ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md shadow-black/40"
+                      : "text-stone-400 hover:text-stone-200 hover:bg-stone-800/40"
                   )}
-                />
-                <span className={tab.isActive ? "font-semibold text-stone-100" : ""}>{tab.label}</span>
-                {tab.isActive && (
-                  <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.2 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono">
-                    {tab.badge}
+                >
+                  <Icon
+                    className={cn(
+                      "w-3.5 h-3.5 transition-colors shrink-0",
+                      tab.isActive ? "text-[#3ecf8e]" : "text-stone-400"
+                    )}
+                  />
+                  <span className={cn(tab.isActive ? "font-semibold text-stone-100" : "")}>
+                    {tab.label}
                   </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+                  {tab.isActive && (
+                    <span className="hidden xl:inline-flex text-[10px] px-1.5 py-0.2 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono shrink-0">
+                      {tab.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-      {/* Right Controls: Connection Status, Settings & Avatar */}
-      <div className="flex items-center space-x-3">
-        {/* Database Connection Status Pill */}
-        <Link
-          href="/settings"
-          className="hidden md:flex items-center space-x-2.5 px-3.5 py-1.5 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-xs text-stone-300 transition-all hover:bg-[#1c1917] group shadow-inner"
-          title="Click to configure Database & LLM settings"
-        >
-          <div className="relative flex items-center justify-center">
-            <span
-              className={cn(
-                "w-2 h-2 rounded-full",
-                isConnected ? "bg-[#3ecf8e] shadow-[0_0_8px_#3ecf8e]" : "bg-rose-500"
-              )}
-            />
-            {isConnected && (
-              <span className="absolute w-4 h-4 rounded-full bg-[#3ecf8e]/30 animate-emerald-pulse" />
-            )}
-          </div>
-          <span className="font-semibold text-stone-200">{dbType}</span>
-          <span className="text-stone-600 font-mono">•</span>
-          <div className="flex items-center space-x-1 text-stone-400 group-hover:text-[#3ecf8e] transition-colors">
-            <Server className="w-3.5 h-3.5 text-stone-500" />
-            <span className="font-mono text-[11px] truncate max-w-[120px]">
-              {dbName}
-            </span>
-          </div>
-          <ChevronDown className="w-3 h-3 text-stone-500 group-hover:text-stone-300 transition-transform" />
-        </Link>
-
-        {/* Settings Gear Button */}
-        <Link
-          href="/settings"
-          className={cn(
-            "relative p-2 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-stone-400 hover:text-[#3ecf8e] hover:bg-[#1c1917] transition-all duration-200 group shadow-inner",
-            pathname === "/settings" && "text-[#3ecf8e] border-[#3ecf8e]/40 bg-[#1c1917]"
+        {/* Right Controls */}
+        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+          {/* Reset Split Button */}
+          {isLayoutCustomized && onResetLayout && (
+            <button
+              onClick={onResetLayout}
+              className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#141210] border border-[#3ecf8e]/40 hover:border-[#3ecf8e] text-[#3ecf8e] hover:text-[#6ee7b7] text-xs font-medium transition-all hover:bg-[#1c1917] shadow-inner animate-in fade-in duration-200 group shrink-0"
+              title="Reset workspace to default 40:60 split layout"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-[#3ecf8e] group-hover:-rotate-90 transition-transform duration-300 shrink-0" />
+              <span className="hidden md:inline font-mono text-[11px]">Reset Split (40:60)</span>
+              <span className="md:hidden font-mono text-[10px]">Reset</span>
+            </button>
           )}
-          title="Database & AI Settings"
-        >
-          <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3ecf8e] shadow-[0_0_6px_#3ecf8e]" />
-        </Link>
 
-        {/* User Profile Avatar */}
-        <div className="flex items-center space-x-2 pl-1">
-          <div className="relative w-8 h-8 rounded-2xl bg-gradient-to-br from-amber-700 to-stone-800 p-[1.5px] cursor-pointer shadow-md hover:shadow-amber-500/10 transition-shadow">
-            <div className="w-full h-full rounded-[14px] bg-[#141210] flex items-center justify-center font-bold text-xs text-stone-200">
-              SB
+          {/* Database Connection Status Pill */}
+          <Link
+            href="/settings"
+            className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-xs text-stone-300 transition-all hover:bg-[#1c1917] group shadow-inner shrink-0"
+            title="Click to configure Database & LLM settings"
+          >
+            <div className="relative flex items-center justify-center shrink-0">
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full",
+                  isConnected ? "bg-[#3ecf8e] shadow-[0_0_8px_#3ecf8e]" : "bg-rose-500"
+                )}
+              />
+              {isConnected && (
+                <span className="absolute w-3.5 h-3.5 rounded-full bg-[#3ecf8e]/30 animate-emerald-pulse" />
+              )}
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#3ecf8e] border-2 border-[#141210] shadow-sm" />
+            <span className="font-semibold text-stone-200 text-xs">{dbType}</span>
+            <span className="text-stone-600 font-mono">•</span>
+            <div className="flex items-center space-x-1 text-stone-400 group-hover:text-[#3ecf8e] transition-colors truncate max-w-[100px]">
+              <Server className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+              <span className="font-mono text-[10px] truncate">{dbName}</span>
+            </div>
+            <ChevronDown className="w-3 h-3 text-stone-500 group-hover:text-stone-300 transition-transform shrink-0" />
+          </Link>
+
+          {/* Settings Gear Button */}
+          <Link
+            href="/settings"
+            className={cn(
+              "relative p-2 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-stone-400 hover:text-[#3ecf8e] hover:bg-[#1c1917] transition-all duration-200 group shadow-inner shrink-0",
+              pathname === "/settings" && "text-[#3ecf8e] border-[#3ecf8e]/40 bg-[#1c1917]"
+            )}
+            title="Database & AI Settings"
+          >
+            <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3ecf8e] shadow-[0_0_6px_#3ecf8e]" />
+          </Link>
+
+          {/* User Profile Avatar */}
+          <div className="flex items-center space-x-2 pl-0.5 shrink-0">
+            <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-2xl bg-gradient-to-br from-amber-700 to-stone-800 p-[1.5px] cursor-pointer shadow-md hover:shadow-amber-500/10 transition-shadow">
+              <div className="w-full h-full rounded-[14px] bg-[#141210] flex items-center justify-center font-bold text-xs text-stone-200">
+                SB
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#3ecf8e] border-2 border-[#141210] shadow-sm" />
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Mobile Slide-Over Navigation Drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden flex flex-col animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-md"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="relative w-full bg-[#171412] border-b border-[#292524] p-4 shadow-2xl space-y-4 z-50 animate-in slide-in-from-top-4 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#292524]">
+              <div className="flex items-center space-x-2">
+                <Radio className="w-4 h-4 text-[#3ecf8e] animate-pulse" />
+                <span className="font-bold text-xs text-stone-200 uppercase tracking-wider">
+                  SchemaAI Navigation
+                </span>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1 rounded-xl text-stone-400 hover:text-stone-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mobile Nav Links */}
+            <div className="grid grid-cols-1 gap-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-xl text-xs font-medium transition-all",
+                      tab.isActive
+                        ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md"
+                        : "text-stone-300 hover:bg-[#141210] border border-transparent"
+                    )}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Icon className={cn("w-4 h-4", tab.isActive ? "text-[#3ecf8e]" : "text-stone-400")} />
+                      <span className="font-semibold text-stone-100">{tab.label}</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono">
+                      {tab.badge}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Mobile Database Connection Banner */}
+            <Link
+              href="/settings"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between p-3 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-300"
+            >
+              <div className="flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-[#3ecf8e] shadow-[0_0_8px_#3ecf8e]" />
+                <span className="font-mono text-[#3ecf8e] font-semibold">{dbType}</span>
+                <span className="text-stone-500">•</span>
+                <span className="font-mono text-stone-300 text-[11px]">{dbName}</span>
+              </div>
+              <Settings className="w-4 h-4 text-stone-400" />
+            </Link>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
+
