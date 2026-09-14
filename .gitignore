@@ -47,3 +47,6 @@ backend/.venv/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311
 backend/.venv/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc
 /backend
 *.pyc
+/backend
+/backend/.venv/Lib/site-packages/_distutils_hack/__pycache__
+/backend/.venv/Lib/site-packages

@@ -23,7 +23,6 @@ import {
   XCircle,
   CheckCheck,
   Server,
-  Terminal,
   FileCode,
   Sliders,
 } from "lucide-react";
@@ -564,56 +563,83 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
 
-              {/* Username & Password */}
-              <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", connectionMode === "local" && config.dbType === "Local SQLite File" && "hidden")}>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-zinc-400" /> Username
-                  </label>
-                  <input
-                    type="text"
-                    value={config.username}
-                    onChange={(e) =>
-                      setConfig({ ...config, username: e.target.value })
-                    }
-                    placeholder="postgres.admin"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
-                  />
-                </div>
-              )}
-
-              {/* 4. MONGODB */}
-              {config.dbType === "MongoDB" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-200 flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-emerald-400" />
-                      <span>MongoDB Connection String (SRV / Standard)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={config.connectionUri}
-                      onChange={(e) => setConfig({ ...config, connectionUri: e.target.value })}
-                      placeholder="mongodb+srv://admin:secret@cluster0.mongodb.net/production_core_db?retryWrites=true&w=majority"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Username & Password */}
+                  <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-4", connectionMode === "local" && config.dbType === "Local SQLite File" && "hidden")}>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Auth Source</label>
+                      <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                        <User className="w-4 h-4 text-zinc-400" /> Username
+                      </label>
                       <input
                         type="text"
-                        value={config.mongoAuthSource || "admin"}
-                        onChange={(e) => setConfig({ ...config, mongoAuthSource: e.target.value })}
-                        placeholder="admin"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                        value={config.username}
+                        onChange={(e) =>
+                          setConfig({ ...config, username: e.target.value })
+                        }
+                        placeholder="postgres.admin"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                        <Lock className="w-4 h-4 text-zinc-400" /> Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={config.password}
+                          onChange={(e) =>
+                            setConfig({ ...config, password: e.target.value })
+                          }
+                          placeholder="••••••••••••"
+                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              </>
+
+                  {/* 4. MONGODB */}
+                  {config.dbType === "MongoDB" && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-emerald-400" />
+                          <span>MongoDB Connection String (SRV / Standard)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={config.connectionUri}
+                          onChange={(e) => setConfig({ ...config, connectionUri: e.target.value })}
+                          placeholder="mongodb+srv://admin:secret@cluster0.mongodb.net/production_core_db?retryWrites=true&w=majority"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-zinc-200">Auth Source</label>
+                          <input
+                            type="text"
+                            value={config.mongoAuthSource || "admin"}
+                            onChange={(e) => setConfig({ ...config, mongoAuthSource: e.target.value })}
+                            placeholder="admin"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

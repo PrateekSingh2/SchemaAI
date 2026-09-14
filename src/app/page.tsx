@@ -51,8 +51,13 @@ export default function QueryStudioPage() {
 
   // Database config
   const [dbConfig, setDbConfig] = useState({
-    dbType: "",
+    dbType: "PostgreSQL",
+    connectionUri: "",
+    username: "",
+    password: "",
     databaseName: "",
+    savedModels: [] as { id: string; provider: string; name: string; apiKey: string }[],
+    activeModelId: "",
     enableQueryGuard: true,
     llmProvider: "openai",
   });
@@ -116,18 +121,7 @@ export default function QueryStudioPage() {
     executionTime: 30,
   });
 
-  // Database config
-  const [dbConfig, setDbConfig] = useState({
-    dbType: "PostgreSQL",
-    connectionUri: "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
-    username: "postgres.admin",
-    password: "••••••••••••••••",
-    databaseName: "production_core_db",
-    savedModels: [] as { id: string; provider: string; name: string; apiKey: string }[],
-    activeModelId: "",
-    enableQueryGuard: true,
-  });
-
+  const [currentPrompt, setCurrentPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Chat conversation turns:
@@ -663,7 +657,7 @@ export default function QueryStudioPage() {
             <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
               <PromptInput
                 value={currentPrompt}
-                onChange={handlePromptChange}
+                onChange={setCurrentPrompt}
                 onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
                 isCentered={true}
@@ -783,7 +777,7 @@ export default function QueryStudioPage() {
                 <div className="max-w-4xl mx-auto w-full">
                   <PromptInput
                     value={currentPrompt}
-                    onChange={handlePromptChange}
+                    onChange={setCurrentPrompt}
                     onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
                     isCentered={false}
