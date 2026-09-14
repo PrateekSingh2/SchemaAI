@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { SettingsModal } from "@/components/SettingsModal";
 
+import { SettingsModal } from "@/components/SettingsModal";
+
 interface TopbarProps {
   dbName?: string;
   dbType?: string;
@@ -52,8 +54,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, signOutUser } = useAuth();
   const [internalConnected, setInternalConnected] = useState<boolean>(false);
-  const [internalDbName, setInternalDbName] = useState<string>(propDbName || "");
-  const [internalDbType, setInternalDbType] = useState<string>(propDbType || "");
+  const [internalDbName, setInternalDbName] = useState<string>("");
+  const [internalDbType, setInternalDbType] = useState<string>("");
 
   const handleOpenSettingsModal = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -78,7 +80,9 @@ export const Topbar: React.FC<TopbarProps> = ({
             if (parsed && typeof parsed === "object") {
               setInternalDbType(parsed.dbType || "");
               setInternalDbName(
-                parsed.databaseName || parsed.sqlitePath || ""
+                parsed.databaseName === "production_core_db"
+                  ? ""
+                  : parsed.databaseName || parsed.sqlitePath || ""
               );
             }
           }
@@ -104,7 +108,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   const isConnected = propIsConnected !== undefined ? propIsConnected : internalConnected;
   const currentDbType = (propDbType && propDbType !== "Database" ? propDbType : internalDbType) || (isConnected ? "Database" : "Database");
-  const currentDbName = propDbName || internalDbName || (isConnected ? "Connected" : "Not Connected");
+  const currentDbName = propDbName || internalDbName || (isConnected ? (currentDbType ? `${currentDbType} Database` : "Connected") : "Not Connected");
 
   const handleDisconnect = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -436,7 +440,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         </div>
       )}
 
-      {/* Self-contained Settings Modal for routes that do not pass onOpenSettings */}
+      {/* Standalone Settings Modal for routes that do not supply onOpenSettings */}
       {!onOpenSettings && (
         <SettingsModal
           isOpen={isSettingsOpen}

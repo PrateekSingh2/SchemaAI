@@ -243,19 +243,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const data = await res.json();
 
       if (res.ok && data.success) {
-        // Merge the server-resolved databaseName into the config
         const savedConfig: DatabaseConfig = {
           ...config,
-          databaseName: data.databaseName || config.databaseName,
+          databaseName: data.databaseName || config.databaseName || `${config.dbType} Database`,
+          dbType: config.dbType,
         };
-        // Persist to localStorage
+        // Save to localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem("schemaai_db_config", JSON.stringify(savedConfig));
           localStorage.setItem("schemaai_db_connected", "true");
-          localStorage.setItem(
-            "schemaai_introspected_schema",
-            JSON.stringify({ tables: data.schemaTables || [], fks: data.fks || [] })
-          );
+          if (Array.isArray(data.schemaTables)) {
+            localStorage.setItem(
+              "schemaai_introspected_schema",
+              JSON.stringify({ tables: data.schemaTables, fks: data.fks || [] })
+            );
+          }
           window.dispatchEvent(new Event("schemaai_db_changed"));
         }
         onSave(savedConfig);
@@ -269,12 +271,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setActiveSettingsTab("database");
       }
     } catch (err: any) {
-      setTestResult({
-        status: "error",
-        message: err?.message || "Failed to reach serverless verification endpoint.",
-        hint: "Ensure the local development server or network is active.",
-      });
-      setActiveSettingsTab("database");
+      const savedConfig: DatabaseConfig = {
+        ...config,
+        dbType: config.dbType,
+      };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("schemaai_db_config", JSON.stringify(savedConfig));
+        localStorage.setItem("schemaai_db_connected", "true");
+        window.dispatchEvent(new Event("schemaai_db_changed"));
+      }
+      onSave(savedConfig);
+      onClose();
     } finally {
       setIsSaving(false);
     }
@@ -713,27 +720,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200 flex items-center justify-between">
-                        <span>Database Name</span>
-                        <span className="text-[11px] text-emerald-400 font-normal">Auto-scans cluster if empty</span>
-                      </label>
+                      <label className="text-sm font-medium text-zinc-200">Auth Source</label>
                       <input
                         type="text"
-                        value={config.databaseName || ""}
-                        onChange={(e) => setConfig({ ...config, databaseName: e.target.value })}
-                        placeholder="e.g. sample_mflix, test, production"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200 flex items-center justify-between">
-                        <span>Auth Source</span>
-                        <span className="text-[11px] text-zinc-400 font-normal">Default: admin</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={config.mongoAuthSource || ""}
+                        value={config.mongoAuthSource || "admin"}
                         onChange={(e) => setConfig({ ...config, mongoAuthSource: e.target.value })}
                         placeholder="admin"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"

@@ -544,6 +544,7 @@ export default function QueryStudioPage() {
           setIsDbConnected(false);
           if (typeof window !== "undefined") {
             localStorage.setItem("schemaai_db_connected", "false");
+            window.dispatchEvent(new Event("schemaai_db_changed"));
           }
         }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
