@@ -26,8 +26,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { SettingsModal } from "@/components/SettingsModal";
 
-import { SettingsModal } from "@/components/SettingsModal";
-
 interface TopbarProps {
   dbName?: string;
   dbType?: string;

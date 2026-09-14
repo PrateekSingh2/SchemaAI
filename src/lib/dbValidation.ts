@@ -59,6 +59,115 @@ export interface DatabaseValidationResult {
 }
 
 /**
+ * Intelligently parses and normalizes a PostgreSQL connection URI or configuration object.
+ * Handles passwords containing raw/unencoded special characters (e.g. @, #, $, %, !, ^, &, *),
+ * IPv6 addresses, query parameters (?sslmode=require), and Supabase PgBouncer pooler connection strings.
+ */
+function parsePostgresConfig(
+  connectionUriOrConfig:
+    | string
+    | { host?: string; port?: number | string; database?: string; user?: string; password?: string; ssl?: any }
+) {
+  if (typeof connectionUriOrConfig !== "string") {
+    return {
+      host: connectionUriOrConfig.host || "localhost",
+      port: Number(connectionUriOrConfig.port) || 5432,
+      database: connectionUriOrConfig.database || "postgres",
+      user: connectionUriOrConfig.user || "postgres",
+      password: connectionUriOrConfig.password || "",
+      ssl: connectionUriOrConfig.ssl !== false ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 15000,
+      statement_timeout: 10000,
+      query_timeout: 10000,
+    };
+  }
+
+  const raw = connectionUriOrConfig.trim();
+
+  // Try custom regex to handle unescaped special characters in password
+  // Format: postgresql://[user]:[password]@[host]:[port]/[database]?[params]
+  const protocolMatch = raw.match(/^(?:postgres|postgresql):\/\/(.*)$/i);
+  if (protocolMatch) {
+    let rest = protocolMatch[1];
+
+    // Split query params if any
+    let queryParams = "";
+    const questionIdx = rest.indexOf("?");
+    if (questionIdx !== -1) {
+      queryParams = rest.substring(questionIdx + 1);
+      rest = rest.substring(0, questionIdx);
+    }
+
+    // Find database name (after the last /)
+    let database = "postgres";
+    const lastSlashIdx = rest.lastIndexOf("/");
+    if (lastSlashIdx !== -1) {
+      database = decodeURIComponent(rest.substring(lastSlashIdx + 1)) || "postgres";
+      rest = rest.substring(0, lastSlashIdx);
+    }
+
+    // Now `rest` is user:password@host:port (or user@host:port or host:port)
+    // Find the LAST '@' to separate credentials from host
+    const lastAtIdx = rest.lastIndexOf("@");
+    let user = "postgres";
+    let password = "";
+    let hostPort = rest;
+
+    if (lastAtIdx !== -1) {
+      const creds = rest.substring(0, lastAtIdx);
+      hostPort = rest.substring(lastAtIdx + 1);
+
+      const colonIdx = creds.indexOf(":");
+      if (colonIdx !== -1) {
+        user = decodeURIComponent(creds.substring(0, colonIdx));
+        try {
+          password = decodeURIComponent(creds.substring(colonIdx + 1));
+        } catch (_) {
+          password = creds.substring(colonIdx + 1);
+        }
+      } else {
+        user = decodeURIComponent(creds);
+      }
+    }
+
+    // Extract host and port
+    let host = "localhost";
+    let port = 5432;
+    const colonHostIdx = hostPort.lastIndexOf(":");
+    if (colonHostIdx !== -1) {
+      host = hostPort.substring(0, colonHostIdx);
+      port = parseInt(hostPort.substring(colonHostIdx + 1), 10) || 5432;
+    } else {
+      host = hostPort;
+    }
+
+    // Clean up host if brackets around IPv6
+    host = host.replace(/^\[|\]$/g, "");
+
+    return {
+      host,
+      port,
+      database,
+      user,
+      password,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 15000,
+      statement_timeout: 10000,
+      query_timeout: 10000,
+    };
+  }
+
+  // Fallback to standard connectionString
+  return {
+    connectionString: raw,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 15000,
+    statement_timeout: 10000,
+    query_timeout: 10000,
+  };
+}
+
+/**
  * Live schema introspection for PostgreSQL / Neon / CockroachDB / Supabase Pooler databases.
  * Queries information_schema specifically for the 'public' schema, strictly filtering out
  * internal system schemas (auth, storage, vault, realtime, graphql, pgsodium, etc.).
@@ -73,27 +182,14 @@ async function introspectPostgres(
       tables: TableNodeData[];
       fks: { from: string; to: string; label: string }[];
       serverVersion?: string;
+      databaseName?: string;
     }
   | { error: string }
 > {
   let client: Client | null = null;
   try {
-    const config =
-      typeof connectionUriOrConfig === "string"
-        ? {
-            connectionString: connectionUriOrConfig,
-            ssl: { rejectUnauthorized: false },
-            connectionTimeoutMillis: 7000,
-          }
-        : {
-            host: connectionUriOrConfig.host,
-            port: Number(connectionUriOrConfig.port) || 5432,
-            database: connectionUriOrConfig.database,
-            user: connectionUriOrConfig.user,
-            password: connectionUriOrConfig.password,
-            ssl: connectionUriOrConfig.ssl ? { rejectUnauthorized: false } : false,
-            connectionTimeoutMillis: 7000,
-          };
+    const config = parsePostgresConfig(connectionUriOrConfig);
+    const resolvedDb = config.database || "postgres";
 
     client = new Client(config);
     await client.connect();
@@ -111,14 +207,14 @@ async function introspectPostgres(
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public'
-        AND table_type = 'BASE TABLE'
+        AND table_type IN ('BASE TABLE', 'VIEW')
       ORDER BY table_name;
     `;
     const tablesRes = await client.query(tablesQuery);
 
     if (tablesRes.rows.length === 0) {
       await client.end();
-      return { tables: [], fks: [], serverVersion };
+      return { tables: [], fks: [], serverVersion, databaseName: resolvedDb };
     }
 
     // Query columns in the 'public' schema
@@ -226,14 +322,20 @@ async function introspectPostgres(
     }
 
     await client.end();
-    return { tables, fks, serverVersion };
+    return { tables, fks, serverVersion, databaseName: resolvedDb };
   } catch (e: any) {
     if (client) {
       try {
         await client.end();
       } catch (_) {}
     }
-    return { error: e?.message || "Failed to establish PostgreSQL connection." };
+    const msg = e?.message || "Failed to establish PostgreSQL connection.";
+    if (msg.includes("getaddrinfo ENOTFOUND db.") && msg.includes(".supabase.co")) {
+      return {
+        error: `${msg} (Supabase direct host db.<ref>.supabase.co is IPv6-only. Please use the IPv4 Pooler host aws-0-<region>.pooler.supabase.com on port 6543 or 5432 instead)`,
+      };
+    }
+    return { error: msg };
   }
 }
 
@@ -249,24 +351,44 @@ async function introspectSupabase(
   | {
       tables: TableNodeData[];
       fks: { from: string; to: string; label: string }[];
+      databaseName?: string;
     }
   | { error: string }
 > {
   try {
     let cleanUrl = url.trim();
+    if (cleanUrl.startsWith("postgres://") || cleanUrl.startsWith("postgresql://")) {
+      return introspectPostgres(cleanUrl);
+    }
+
+    // Extract project ref if dashboard URL was pasted: https://supabase.com/dashboard/project/<ref> or https://app.supabase.com/project/<ref>
+    const dashMatch = cleanUrl.match(/(?:dashboard\/project|project)\/([a-z0-9_-]+)/i);
+    if (dashMatch && dashMatch[1]) {
+      cleanUrl = `https://${dashMatch[1]}.supabase.co`;
+    }
+
     if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
       cleanUrl = `https://${cleanUrl}`;
     }
-    cleanUrl = cleanUrl.replace(/\/$/, "");
+
+    // Auto-complete project ref if user entered just the reference ID (e.g. abcdefghijklmnop)
+    if (!cleanUrl.includes(".") && !cleanUrl.includes("://localhost")) {
+      cleanUrl = `https://${cleanUrl.replace(/^https?:\/\//, "")}.supabase.co`;
+    }
+
+    cleanUrl = cleanUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+
+    // Clean and sanitize API key
+    const cleanKey = key.trim().replace(/^['"]|['"]$/g, "");
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
     const res = await fetch(`${cleanUrl}/rest/v1/`, {
       method: "GET",
       headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
+        apikey: cleanKey,
+        Authorization: `Bearer ${cleanKey}`,
         Accept: "application/openapi+json, application/json, */*",
       },
       signal: controller.signal,
@@ -275,16 +397,32 @@ async function introspectSupabase(
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
-      let errMsg = `Supabase PostgREST returned HTTP ${res.status}`;
-      try {
-        const parsedErr = JSON.parse(errBody);
-        if (parsedErr.message) errMsg = parsedErr.message;
-        else if (parsedErr.error) errMsg = parsedErr.error;
-      } catch (_) {}
+      let errMsg = `Supabase PostgREST API returned HTTP ${res.status}`;
+      if (res.status === 401 || res.status === 403) {
+        errMsg = "Unauthorized: Invalid Supabase API Key. Please verify your anon key or service_role key in Project Settings > API.";
+      } else if (res.status === 404) {
+        errMsg = `Project not found at ${cleanUrl}. Verify your Supabase Project URL (e.g. https://<project-ref>.supabase.co).`;
+      } else if (res.status === 503 || res.status === 504) {
+        errMsg = `Supabase project may be paused or waking up. Please verify the project is active in Supabase Dashboard.`;
+      } else {
+        try {
+          const parsedErr = JSON.parse(errBody);
+          if (parsedErr.message) errMsg = parsedErr.message;
+          else if (parsedErr.error) errMsg = parsedErr.error;
+          else if (parsedErr.hint) errMsg = `${parsedErr.message || "Error"} (${parsedErr.hint})`;
+        } catch (_) {}
+      }
       return { error: errMsg };
     }
 
     const openApi = await res.json();
+
+    // Extract project ref for databaseName display
+    let projectRef = "postgres";
+    const refMatch = cleanUrl.match(/https?:\/\/([a-z0-9_-]+)\.supabase\.co/i);
+    if (refMatch && refMatch[1]) {
+      projectRef = refMatch[1];
+    }
 
     // In PostgREST, tables can be in openApi.definitions (Swagger 2.0) or openApi.components.schemas (OpenAPI 3.0)
     const definitions: Record<string, any> =
@@ -303,7 +441,7 @@ async function introspectSupabase(
     }
 
     if (tableNames.length === 0) {
-      return { tables: [], fks: [] };
+      return { tables: [], fks: [], databaseName: projectRef };
     }
 
     const tables: TableNodeData[] = [];
@@ -390,11 +528,11 @@ async function introspectSupabase(
             {
               method: "HEAD",
               headers: {
-                apikey: key,
-                Authorization: `Bearer ${key}`,
+                apikey: cleanKey,
+                Authorization: `Bearer ${cleanKey}`,
                 Prefer: "count=exact",
               },
-              signal: AbortSignal.timeout(3500),
+              signal: AbortSignal.timeout(4000),
             }
           );
           const range = headRes.headers.get("content-range");
@@ -413,7 +551,7 @@ async function introspectSupabase(
       })
     );
 
-    return { tables, fks };
+    return { tables, fks, databaseName: projectRef };
   } catch (e: any) {
     return { error: e?.message || "Failed to reach Supabase PostgREST endpoint." };
   }
@@ -943,33 +1081,145 @@ export async function validateDatabaseConnection(
     }
 
     case "Supabase": {
-      // Auto-detect mode: if connectionUri is present and supabaseUrl is not, run URI mode; else run API key mode
-      const isUriMode = connectionMode === "uri" || (Boolean(payload.connectionUri) && !payload.supabaseUrl);
+      const rawUri = (payload.connectionUri || "").trim();
+      const rawUrl = (payload.supabaseUrl || "").trim();
+      const rawAnonKey = (payload.supabaseAnonKey || "").trim();
+      const rawServiceKey = (payload.supabaseServiceKey || "").trim();
+      const apiKey = (rawServiceKey || rawAnonKey).replace(/^['"]|['"]$/g, "");
 
-      if (!isUriMode) {
-        if (!payload.supabaseUrl || !payload.supabaseUrl.trim()) {
+      // Determine the user's intent based on provided values
+      const hasPgUri =
+        rawUri.startsWith("postgres://") ||
+        rawUri.startsWith("postgresql://") ||
+        rawUrl.startsWith("postgres://") ||
+        rawUrl.startsWith("postgresql://");
+      const hasHostParams = Boolean(payload.host && payload.username);
+      const isParamsMode = connectionMode === "params" || (hasHostParams && !hasPgUri && !apiKey);
+      const isUriMode = connectionMode === "uri" || hasPgUri || (Boolean(rawUri) && !rawUrl && !apiKey);
+
+      if (isParamsMode) {
+        // Parameters Mode (Host, Port, Username, Password)
+        const latencyStart = Date.now();
+        const result = await introspectPostgres({
+          host: payload.host,
+          port: payload.port || 6543,
+          database: payload.databaseName || "postgres",
+          user: payload.username,
+          password: payload.password,
+          ssl: payload.ssl !== false,
+        });
+
+        if ("error" in result) {
+          let hint = "Verify Supabase host (pooler host), port (6543 or 5432), username (postgres.<project-ref>), and database password.";
+          if (result.error.includes("password authentication failed")) {
+            hint = "Incorrect database password. Check your password in Supabase Dashboard > Project Settings > Database.";
+          }
+          return {
+            success: false,
+            message: `Failed to connect to Supabase PostgreSQL: ${result.error}`,
+            error: "POSTGRES_CONNECTION_ERROR",
+            hint,
+          };
+        }
+
+        const latencyMs = Math.max(Date.now() - latencyStart, 18);
+        const tables = result.tables;
+        const fks = result.fks;
+        const dbName = payload.databaseName || result.databaseName || "postgres";
+
+        return {
+          success: true,
+          message:
+            tables.length > 0
+              ? `Connected successfully to Supabase PostgreSQL — introspected ${tables.length} live table${tables.length === 1 ? "" : "s"}.`
+              : "Connected successfully to Supabase PostgreSQL, but 0 public tables exist in this database.",
+          latencyMs,
+          serverVersion: result.serverVersion || "Supabase PostgreSQL",
+          ssl: true,
+          databaseName: dbName,
+          engine: "Supabase",
+          tablesCount: tables.length,
+          tables: tables.map((t) => t.tableName),
+          schemaTables: tables,
+          fks,
+        };
+      } else if (isUriMode) {
+        // URI / Connection String Mode
+        const uriToUse = hasPgUri && rawUrl.startsWith("postgres") ? rawUrl : rawUri;
+        if (!uriToUse) {
+          return {
+            success: false,
+            message: "Supabase PostgreSQL Pooler URI is required.",
+            error: "MISSING_URI",
+            hint: "Copy your Session (port 5432) or Transaction (port 6543) pooler URI from Supabase Dashboard > Project Settings > Database.",
+          };
+        }
+
+        const latencyStart = Date.now();
+        const result = await introspectPostgres(uriToUse);
+
+        if ("error" in result) {
+          let hint = "Check your database password, pooler host, and port.";
+          if (result.error.includes("password authentication failed")) {
+            hint = "Database password incorrect. Reset your Supabase database password in Project Settings > Database.";
+          } else if (
+            result.error.includes("timeout") ||
+            result.error.includes("ETIMEDOUT") ||
+            result.error.includes("ENOTFOUND")
+          ) {
+            hint =
+              "Direct host db.<ref>.supabase.co is IPv6-only. Use the Connection Pooler URI (aws-0-<region>.pooler.supabase.com:6543) which supports IPv4.";
+          }
+          return {
+            success: false,
+            message: `Failed to connect to Supabase PostgreSQL Pooler: ${result.error}`,
+            error: "POSTGRES_CONNECTION_ERROR",
+            hint,
+          };
+        }
+
+        const latencyMs = Math.max(Date.now() - latencyStart, 18);
+        const tables = result.tables;
+        const fks = result.fks;
+        const dbName = payload.databaseName || result.databaseName || "postgres";
+
+        return {
+          success: true,
+          message:
+            tables.length > 0
+              ? `Connected successfully to Supabase PostgreSQL — introspected ${tables.length} live table${tables.length === 1 ? "" : "s"}.`
+              : "Connected successfully to Supabase PostgreSQL, but 0 public tables exist in this database.",
+          latencyMs,
+          serverVersion: result.serverVersion || "Supabase Pooler (PgBouncer)",
+          ssl: true,
+          databaseName: dbName,
+          engine: "Supabase",
+          tablesCount: tables.length,
+          tables: tables.map((t) => t.tableName),
+          schemaTables: tables,
+          fks,
+        };
+      } else {
+        // API Key / REST Mode
+        if (!rawUrl) {
           return {
             success: false,
             message: "Supabase Project URL is required.",
             error: "MISSING_SUPABASE_URL",
-            hint: "Found in Supabase Dashboard > Project Settings > API (e.g. https://xyzcompany.supabase.co or xyzcompany.supabase.co).",
+            hint: "Found in Supabase Dashboard > Project Settings > API (e.g. https://<project-ref>.supabase.co or project ref).",
           };
         }
-        if (!payload.supabaseAnonKey && !payload.supabaseServiceKey) {
+        if (!apiKey) {
           return {
             success: false,
-            message: "A Supabase API Key (Anon or Service Role) is required for schema introspection.",
+            message: "A Supabase API Key (Anon or Service Role) is required.",
             error: "MISSING_API_KEY",
             hint: "Provide your service_role key or anon public key from Supabase Dashboard > Settings > API.",
           };
         }
 
-        const cleanUrl = payload.supabaseUrl.trim();
-        const apiKey = (payload.supabaseServiceKey || payload.supabaseAnonKey)!.trim();
         const latencyStart = Date.now();
-
-        // Perform live introspection via PostgREST OpenAPI
-        const result = await introspectSupabase(cleanUrl, apiKey);
+        const result = await introspectSupabase(rawUrl, apiKey);
 
         if ("error" in result) {
           return {
@@ -983,62 +1233,18 @@ export async function validateDatabaseConnection(
         const latencyMs = Math.max(Date.now() - latencyStart, 15);
         const tables = result.tables;
         const fks = result.fks;
-        const dbName = payload.databaseName || "postgres";
+        const dbName = payload.databaseName || result.databaseName || "postgres";
 
         return {
           success: true,
           message:
             tables.length > 0
-              ? `Connected successfully to Supabase [${cleanUrl}] — introspected ${tables.length} live table${tables.length === 1 ? "" : "s"}.`
-              : `Connected successfully to Supabase [${cleanUrl}], but 0 public tables exist in this project.`,
+              ? `Connected successfully to Supabase [${result.databaseName || rawUrl}] — introspected ${tables.length} live table${tables.length === 1 ? "" : "s"}.`
+              : `Connected successfully to Supabase [${result.databaseName || rawUrl}] — project is active and authenticated (0 public tables found).`,
           latencyMs,
           serverVersion: "Supabase PostgreSQL (PostgREST API)",
           ssl: true,
           databaseName: dbName,
-          engine: "Supabase",
-          tablesCount: tables.length,
-          tables: tables.map((t) => t.tableName),
-          schemaTables: tables,
-          fks,
-        };
-      } else {
-        // URI mode for Supabase
-        if (!payload.connectionUri || !payload.connectionUri.trim()) {
-          return {
-            success: false,
-            message: "Supabase PostgreSQL Pooler URI is required.",
-            error: "MISSING_URI",
-            hint: "Copy your Session or Transaction pooler URI from Supabase Dashboard > Project Settings > Database.",
-          };
-        }
-
-        const uri = payload.connectionUri.trim();
-        const latencyStart = Date.now();
-        const result = await introspectPostgres(uri);
-
-        if ("error" in result) {
-          return {
-            success: false,
-            message: `Failed to connect to Supabase PostgreSQL Pooler: ${result.error}`,
-            error: "POSTGRES_CONNECTION_ERROR",
-            hint: "Check your password, host, and port in the connection string.",
-          };
-        }
-
-        const latencyMs = Math.max(Date.now() - latencyStart, 18);
-        const tables = result.tables;
-        const fks = result.fks;
-
-        return {
-          success: true,
-          message:
-            tables.length > 0
-              ? `Connected successfully to Supabase PostgreSQL — introspected ${tables.length} live table${tables.length === 1 ? "" : "s"}.`
-              : "Connected successfully to Supabase PostgreSQL, but 0 public tables exist in this database.",
-          latencyMs,
-          serverVersion: result.serverVersion || "Supabase Pooler (PgBouncer)",
-          ssl: true,
-          databaseName: payload.databaseName || "postgres",
           engine: "Supabase",
           tablesCount: tables.length,
           tables: tables.map((t) => t.tableName),

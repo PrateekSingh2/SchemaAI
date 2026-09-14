@@ -438,6 +438,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       >
                         Direct Pooler URI
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfig({ ...config, connectionMode: "params" })}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                          currentMode === "params"
+                            ? "bg-[#1f1f26] text-[#38bdf8] shadow-sm font-semibold"
+                            : "text-zinc-400 hover:text-white"
+                        )}
+                      >
+                        Host & Parameters
+                      </button>
                     </>
                   ) : (
                     <>
@@ -586,7 +598,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type="text"
                           value={config.supabaseUrl || ""}
                           onChange={(e) => setConfig({ ...config, supabaseUrl: e.target.value })}
-                          placeholder="https://xyzcompany.supabase.co"
+                          placeholder="https://xyzcompany.supabase.co or xyzcompany"
                           className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
                         />
                       </div>
@@ -596,7 +608,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <span className="flex items-center gap-1.5">
                             <Key className="w-4 h-4 text-emerald-400" /> API Key (service_role or anon key)
                           </span>
-                          <span className="text-xs text-zinc-400">Found in Project Settings &gt; API</span>
+                          <span className="text-xs text-zinc-400">Project Settings &gt; API</span>
                         </label>
                         <div className="relative">
                           <input
@@ -616,11 +628,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
                     </div>
+                  ) : currentMode === "params" ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="sm:col-span-2 space-y-2">
+                          <label className="text-sm font-medium text-zinc-200">Pooler Host (IPv4)</label>
+                          <input
+                            type="text"
+                            value={config.host || ""}
+                            onChange={(e) => setConfig({ ...config, host: e.target.value })}
+                            placeholder="aws-0-us-east-1.pooler.supabase.com"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-zinc-200">Port</label>
+                          <input
+                            type="number"
+                            value={config.port ?? ""}
+                            onChange={(e) => setConfig({ ...config, port: e.target.value })}
+                            placeholder="6543 (Pooler) or 5432"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                            <User className="w-4 h-4 text-zinc-400" /> Username
+                          </label>
+                          <input
+                            type="text"
+                            value={config.username}
+                            onChange={(e) => setConfig({ ...config, username: e.target.value })}
+                            placeholder="postgres.your-project-ref"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                            <Lock className="w-4 h-4 text-zinc-400" /> Database Password
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              value={config.password}
+                              onChange={(e) => setConfig({ ...config, password: e.target.value })}
+                              placeholder="••••••••••••"
+                              className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                            >
+                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-zinc-200 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
-                          <Globe className="w-4 h-4 text-[#38bdf8]" /> Supabase Direct Pooler Connection String
+                          <Globe className="w-4 h-4 text-[#38bdf8]" /> Supabase Connection Pooler URI (IPv4)
                         </span>
                         <span className="text-xs text-[#38bdf8]">Port 6543 / 5432</span>
                       </label>
