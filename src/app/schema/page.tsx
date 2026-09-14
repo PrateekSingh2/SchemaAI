@@ -6,7 +6,7 @@ import { SchemaCanvas } from "@/components/SchemaExplorer/SchemaCanvas";
 
 export default function SchemaPage() {
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
+    <div className="h-screen w-screen overflow-hidden bg-[#090A0F] text-slate-100 flex flex-col font-sans select-none antialiased">
       <Topbar />
       <main className="flex-1 overflow-hidden relative">
         <SchemaCanvas />

@@ -83,7 +83,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
+    <div className="h-screen w-screen overflow-hidden bg-[#090A0F] text-slate-100 flex flex-col font-sans select-none antialiased">
       <Topbar dbName={config.databaseName} dbType={config.dbType} />
 
       <main className="flex-1 overflow-y-auto p-3 sm:p-8 max-w-5xl mx-auto w-full space-y-4 sm:space-y-6">

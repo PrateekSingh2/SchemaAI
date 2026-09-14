@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Roboto, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const roboto = Roboto({
+  weight: ["300", "400", "500", "700"],
+  variable: "--font-roboto",
   subsets: ["latin"],
 });
 
@@ -23,9 +24,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-full bg-[#121110] text-stone-100">
+    <html lang="en" className="dark h-full bg-[#0e0e11] text-[#f4f4f5]">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col font-sans bg-[#121110] text-stone-100 antialiased selection:bg-[#3ecf8e]/30 selection:text-[#3ecf8e]`}
+        className={`${roboto.variable} ${jetbrainsMono.variable} min-h-screen flex flex-col font-sans bg-[#0e0e11] text-[#f4f4f5] antialiased selection:bg-[#38bdf8]/25 selection:text-[#38bdf8]`}
       >
         {children}
       </body>

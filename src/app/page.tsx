@@ -1,40 +1,97 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Topbar } from "@/components/Topbar";
 import { MutationWarningModal } from "@/components/MutationWarningModal";
+import { OutputResultsModal } from "@/components/QueryStudio/OutputResultsModal";
+import { SettingsModal, DatabaseConfig } from "@/components/SettingsModal";
 import { SqlOutput } from "@/components/QueryStudio/SqlOutput";
-import { RecordsTable } from "@/components/QueryStudio/RecordsTable";
 import { PromptInput } from "@/components/QueryStudio/PromptInput";
+import { OutputSummaryBox } from "@/components/QueryStudio/OutputSummaryBox";
+import {
+  ChatHistoryPanel,
+  ChatOperation,
+  ChatMessageTurn,
+} from "@/components/QueryStudio/ChatHistoryPanel";
 import {
   detectMutation,
   generateMockResult,
 } from "@/lib/mockData";
-import { GripVertical, GripHorizontal, Code2, Table2 } from "lucide-react";
+import {
+  Database,
+  Cpu,
+  User,
+  Sparkles,
+  RotateCcw,
+  Bot,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type MaximizedSection = null | "sql" | "prompt" | "records";
-type MobileWorkbenchTab = "prompt" | "sql" | "records";
+const INITIAL_TURNS: ChatMessageTurn[] = [
+  {
+    id: "turn-1",
+    userPrompt: "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time",
+    timestamp: "10m ago",
+    sql: `SELECT \n  u.id AS user_id,\n  u.username,\n  u.email,\n  u.role,\n  COUNT(DISTINCT s.problem_id) AS problems_solved,\n  SUM(s.score_awarded) AS total_score,\n  ROUND(AVG(s.execution_time_ms), 2) AS avg_runtime_ms\nFROM users u\nJOIN submissions s ON u.id = s.user_id\nJOIN problems p ON s.problem_id = p.id\nWHERE s.status = 'ACCEPTED'\nGROUP BY u.id, u.username, u.email, u.role\nORDER BY total_score DESC, avg_runtime_ms ASC\nLIMIT 5;`,
+    queryFormat: "sql",
+    hasRun: true,
+    records: [
+      { user_id: "usr_99a82b", username: "alex_chen", email: "alex.chen@cyber.dev", role: "contender", problems_solved: 48, total_score: 4800, avg_runtime_ms: 24.5 },
+      { user_id: "usr_44f10c", username: "elena_rostova", email: "elena.r@deepmath.org", role: "master", problems_solved: 46, total_score: 4650, avg_runtime_ms: 31.2 },
+      { user_id: "usr_77e31d", username: "marcus_v", email: "m.vance@quantum.ai", role: "master", problems_solved: 42, total_score: 4200, avg_runtime_ms: 28.8 },
+      { user_id: "usr_12c98a", username: "sophia_k", email: "sophia.k@matrix.io", role: "contender", problems_solved: 39, total_score: 3950, avg_runtime_ms: 45.1 },
+      { user_id: "usr_88d33e", username: "dev_siddharth", email: "sid.sharma@byteflow.net", role: "pro", problems_solved: 37, total_score: 3700, avg_runtime_ms: 38.6 },
+    ],
+    columns: ["user_id", "username", "email", "role", "problems_solved", "total_score", "avg_runtime_ms"],
+    executionTime: 32,
+    tokens: 285,
+    cost: "$0.0011",
+  },
+];
+
+const INITIAL_OPERATIONS: ChatOperation[] = [
+  {
+    id: "op-1",
+    prompt: "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time",
+    sql: INITIAL_TURNS[0].sql,
+    timestamp: "10m ago",
+    format: "sql",
+    status: "executed",
+    rowCount: 5,
+    turns: INITIAL_TURNS,
+  },
+  {
+    id: "op-2",
+    prompt: "Show all active quizzes along with the count of easy, medium, and hard problems linked to each.",
+    sql: `SELECT \n  q.id AS quiz_id,\n  q.title AS quiz_title,\n  q.pass_percentage,\n  COUNT(p.id) AS total_problems,\n  q.is_active\nFROM quizzes q\nLEFT JOIN problems p ON q.id = p.quiz_id\nWHERE q.is_active = true\nGROUP BY q.id, q.title, q.pass_percentage, q.is_active;`,
+    timestamp: "25m ago",
+    format: "sql",
+    status: "generated",
+    rowCount: 5,
+  },
+];
 
 export default function QueryStudioPage() {
   const [isMutationModalOpen, setIsMutationModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Mobile view tab ("prompt" | "sql" | "records")
-  const [mobileTab, setMobileTab] = useState<MobileWorkbenchTab>("prompt");
-
-  // Split view percentages (Default: 40% left width, 60% top left height)
-  const [leftWidthPct, setLeftWidthPct] = useState(40);
-  const [topHeightPct, setTopHeightPct] = useState(60);
-  const [maximizedSection, setMaximizedSection] = useState<MaximizedSection>(null);
-
-  // Container refs for mouse drag resizing
-  const containerRef = useRef<HTMLDivElement>(null);
-  const leftColumnRef = useRef<HTMLDivElement>(null);
-  const isDraggingHorizontal = useRef(false);
-  const isDraggingVertical = useRef(false);
+  // Active Output Results Modal State
+  const [modalOutputData, setModalOutputData] = useState<{
+    isOpen: boolean;
+    columns: string[];
+    records: Array<Record<string, unknown>>;
+    executionTime: number;
+    tableName?: string;
+  }>({
+    isOpen: false,
+    columns: [],
+    records: [],
+    executionTime: 30,
+  });
 
   // Database config
-  const [dbConfig] = useState({
+  const [dbConfig, setDbConfig] = useState({
     dbType: "PostgreSQL",
     databaseName: "production_core_db",
     enableQueryGuard: true,
@@ -42,111 +99,139 @@ export default function QueryStudioPage() {
   });
 
   // Query Studio state
-  const [currentPrompt, setCurrentPrompt] = useState(
-    "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time"
-  );
-  const [queryFormat, setQueryFormat] = useState<"sql" | "graphql">("sql");
+  const [currentPrompt, setCurrentPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Execution Results
-  const initialResult = generateMockResult(currentPrompt, "sql");
-  const [currentSql, setCurrentSql] = useState(initialResult.sql);
-  const [currentGraphql, setCurrentGraphql] = useState(initialResult.graphql);
-  const [currentRecords, setCurrentRecords] = useState(initialResult.records);
-  const [currentColumns, setCurrentColumns] = useState(initialResult.columns);
-  const [stats, setStats] = useState({
-    executionTime: initialResult.executionTime,
-    tokens: initialResult.tokens,
-    cost: initialResult.cost,
-  });
+  // Chat conversation turns:
+  // If activeTurns is empty => show initial centered prompt screen
+  // If activeTurns has >= 1 turn => Gemini layout: turns stream + sticky bottom input
+  const [activeTurns, setActiveTurns] = useState<ChatMessageTurn[]>([]);
+  const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
+
+  // Operations / Chat History
+  const [operations, setOperations] = useState<ChatOperation[]>(INITIAL_OPERATIONS);
 
   // Pending mutation execution state
   const [pendingMutation, setPendingMutation] = useState<{
     prompt: string;
     sql: string;
+    turnId: string;
     targetTable?: string;
     mutationType?: string;
   } | null>(null);
 
-  // --- Resizing Mouse Handlers ---
-  const handleMouseDownHorizontal = (e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingHorizontal.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
+  // Scroll ref for single unified scrollbar
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const turnsEndRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseDownVertical = (e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingVertical.current = true;
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
-  };
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isDraggingHorizontal.current && containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const rawPct = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      // Clamp between 25% and 75% to prevent collapse
-      const clampedPct = Math.min(Math.max(rawPct, 25), 75);
-      setLeftWidthPct(Math.round(clampedPct));
-    }
-
-    if (isDraggingVertical.current && leftColumnRef.current) {
-      const leftColRect = leftColumnRef.current.getBoundingClientRect();
-      const rawPct = ((e.clientY - leftColRect.top) / leftColRect.height) * 100;
-      // Clamp between 25% and 75% to prevent collapse
-      const clampedPct = Math.min(Math.max(rawPct, 25), 75);
-      setTopHeightPct(Math.round(clampedPct));
-    }
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    isDraggingHorizontal.current = false;
-    isDraggingVertical.current = false;
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-  }, []);
-
+  // Auto-scroll to bottom whenever activeTurns updates or generating starts
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
+    if (activeTurns.length > 0) {
+      turnsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [activeTurns.length, isGenerating]);
 
-  // Reset back to default 40:60 / 60:40 split
-  const handleResetSplit = () => {
-    setLeftWidthPct(40);
-    setTopHeightPct(60);
-    setMaximizedSection(null);
-  };
+  // 1. Submit a prompt:
+  // If no turns yet, creates the first turn and starts the chat session.
+  // If turns already exist, appends a new turn into the SAME chat conversation!
+  const handleGenerateQuery = async (promptText: string) => {
+    if (!promptText.trim()) return;
 
-  // Toggle maximize for specific sections
-  const toggleMaximize = (section: "sql" | "prompt" | "records") => {
-    setMaximizedSection((prev) => (prev === section ? null : section));
-  };
-
-  // Handle Query Generation and Execution
-  const handleGenerateAndRun = async (promptText: string) => {
-    setCurrentPrompt(promptText);
+    setCurrentPrompt("");
     setIsGenerating(true);
 
-    // Switch mobile tab to SQL Output automatically on generate
-    setMobileTab("sql");
+    const turnId = `turn-${Date.now()}`;
+    const newTurnPlaceholder: ChatMessageTurn = {
+      id: turnId,
+      userPrompt: promptText,
+      timestamp: "Just now",
+      sql: "-- Synthesizing relational AST...",
+      queryFormat: "sql",
+      hasRun: false,
+      records: [],
+      columns: [],
+      executionTime: 0,
+      tokens: 0,
+      cost: "$0.0000",
+      isGenerating: true,
+    };
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    // Append turn to the current conversation
+    setActiveTurns((prev) => [...prev, newTurnPlaceholder]);
 
-    const mutationCheck = detectMutation(promptText);
-    const mockOutput = generateMockResult(promptText, queryFormat);
+    await new Promise((resolve) => setTimeout(resolve, 750));
 
-    if (mutationCheck.isMutation && dbConfig.enableQueryGuard) {
-      setIsGenerating(false);
-      setPendingMutation({
+    const mockOutput = generateMockResult(promptText, "sql");
+
+    const completedTurn: ChatMessageTurn = {
+      id: turnId,
+      userPrompt: promptText,
+      timestamp: "Just now",
+      sql: mockOutput.sql,
+      graphql: mockOutput.graphql,
+      queryFormat: "sql",
+      hasRun: false,
+      records: mockOutput.records,
+      columns: mockOutput.columns,
+      executionTime: mockOutput.executionTime,
+      tokens: mockOutput.tokens,
+      cost: mockOutput.cost,
+      isGenerating: false,
+    };
+
+    setActiveTurns((prev) =>
+      prev.map((t) => (t.id === turnId ? completedTurn : t))
+    );
+    setIsGenerating(false);
+
+    // Update or create chat operation in left panel
+    if (!activeOperationId) {
+      const newOpId = `op-${Date.now()}`;
+      const newOp: ChatOperation = {
+        id: newOpId,
         prompt: promptText,
         sql: mockOutput.sql,
+        graphql: mockOutput.graphql,
+        timestamp: "Just now",
+        format: "sql",
+        status: "generated",
+        rowCount: mockOutput.records.length,
+        records: mockOutput.records,
+        columns: mockOutput.columns,
+        executionTime: mockOutput.executionTime,
+        turns: [completedTurn],
+      };
+      setOperations((prev) => [newOp, ...prev]);
+      setActiveOperationId(newOpId);
+    } else {
+      setOperations((prev) =>
+        prev.map((op) =>
+          op.id === activeOperationId
+            ? {
+                ...op,
+                sql: mockOutput.sql,
+                turns: [...(op.turns || []), completedTurn],
+              }
+            : op
+        )
+      );
+    }
+  };
+
+  // 2. Run Query action for a specific turn
+  const handleRunQuery = async (turnId: string, customQuery?: string) => {
+    const turn = activeTurns.find((t) => t.id === turnId);
+    if (!turn) return;
+
+    const queryToExecute = customQuery || turn.sql;
+    const promptToCheck = turn.userPrompt;
+    const mutationCheck = detectMutation(promptToCheck);
+
+    if (mutationCheck.isMutation && dbConfig.enableQueryGuard) {
+      setPendingMutation({
+        prompt: promptToCheck,
+        sql: queryToExecute,
+        turnId: turnId,
         targetTable: mutationCheck.targetTable,
         mutationType: mutationCheck.mutationType,
       });
@@ -154,263 +239,322 @@ export default function QueryStudioPage() {
       return;
     }
 
-    setCurrentSql(mockOutput.sql);
-    if (mockOutput.graphql) setCurrentGraphql(mockOutput.graphql);
-    setCurrentRecords(mockOutput.records);
-    setCurrentColumns(mockOutput.columns);
-    setStats({
+    // Mark turn as executing
+    setActiveTurns((prev) =>
+      prev.map((t) => (t.id === turnId ? { ...t, isExecuting: true } : t))
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    const mockOutput = generateMockResult(promptToCheck, turn.queryFormat);
+
+    // Update turn state
+    setActiveTurns((prev) =>
+      prev.map((t) =>
+        t.id === turnId
+          ? {
+              ...t,
+              hasRun: true,
+              isExecuting: false,
+              records: mockOutput.records,
+              columns: mockOutput.columns,
+              executionTime: mockOutput.executionTime,
+            }
+          : t
+      )
+    );
+
+    // Automatically open popup modal for fetched output
+    setModalOutputData({
+      isOpen: true,
+      columns: mockOutput.columns,
+      records: mockOutput.records,
       executionTime: mockOutput.executionTime,
-      tokens: mockOutput.tokens,
-      cost: mockOutput.cost,
+      tableName: dbConfig.databaseName,
     });
 
-    setIsGenerating(false);
+    // Update history session in left panel
+    if (activeOperationId) {
+      setOperations((prev) =>
+        prev.map((op) =>
+          op.id === activeOperationId
+            ? {
+                ...op,
+                status: "executed",
+                rowCount: mockOutput.records.length,
+              }
+            : op
+        )
+      );
+    }
   };
 
-  // Handle Mutation Authorization Grant
+  // 3. User edits SQL for a specific turn
+  const handleUpdateSql = (turnId: string, updatedSql: string) => {
+    setActiveTurns((prev) =>
+      prev.map((t) => (t.id === turnId ? { ...t, sql: updatedSql } : t))
+    );
+  };
+
+  // 4. Change query format (SQL / GraphQL) for a specific turn
+  const handleSetFormat = (turnId: string, format: "sql" | "graphql") => {
+    setActiveTurns((prev) =>
+      prev.map((t) => (t.id === turnId ? { ...t, queryFormat: format } : t))
+    );
+  };
+
+  // 5. Open output popup modal for a specific turn
+  const handleOpenOutputModal = (turn: ChatMessageTurn) => {
+    setModalOutputData({
+      isOpen: true,
+      columns: turn.columns,
+      records: turn.records,
+      executionTime: turn.executionTime,
+      tableName: dbConfig.databaseName,
+    });
+  };
+
+  // 6. Select a past operation from left panel
+  const handleSelectOperation = (op: ChatOperation) => {
+    setActiveOperationId(op.id);
+    setCurrentPrompt("");
+
+    if (op.turns && op.turns.length > 0) {
+      setActiveTurns(op.turns);
+    } else {
+      const mock = generateMockResult(op.prompt, op.format);
+      const reconstructedTurn: ChatMessageTurn = {
+        id: `turn-${Date.now()}`,
+        userPrompt: op.prompt,
+        timestamp: op.timestamp,
+        sql: op.sql,
+        graphql: op.graphql,
+        queryFormat: op.format,
+        hasRun: op.status === "executed",
+        records: op.records || mock.records,
+        columns: op.columns || mock.columns,
+        executionTime: op.executionTime || mock.executionTime,
+        tokens: 285,
+        cost: "$0.0011",
+      };
+      setActiveTurns([reconstructedTurn]);
+    }
+  };
+
+  // 7. Start New Query / New Chat -> returns to initial centered prompt screen
+  const handleNewChat = () => {
+    setActiveOperationId(null);
+    setActiveTurns([]);
+    setCurrentPrompt("");
+  };
+
+  // 8. Delete individual operation
+  const handleDeleteOperation = (id: string) => {
+    setOperations((prev) => prev.filter((op) => op.id !== id));
+    if (activeOperationId === id) {
+      handleNewChat();
+    }
+  };
+
+  // 9. Clear all history
+  const handleClearHistory = () => {
+    setOperations([]);
+    handleNewChat();
+  };
+
+  // 10. Mutation Approval Grant
   const handleGrantMutation = () => {
     if (!pendingMutation) return;
+    const { turnId, prompt: promptToCheck, sql: queryToExecute } = pendingMutation;
+    const mockOutput = generateMockResult(promptToCheck, "sql");
 
-    const mockOutput = generateMockResult(pendingMutation.prompt, queryFormat);
-    setCurrentSql(pendingMutation.sql);
-    setCurrentRecords(mockOutput.records);
-    setCurrentColumns(mockOutput.columns);
+    setActiveTurns((prev) =>
+      prev.map((t) =>
+        t.id === turnId
+          ? {
+              ...t,
+              hasRun: true,
+              isExecuting: false,
+              sql: queryToExecute,
+              records: mockOutput.records,
+              columns: mockOutput.columns,
+              executionTime: mockOutput.executionTime,
+            }
+          : t
+      )
+    );
+
+    setModalOutputData({
+      isOpen: true,
+      columns: mockOutput.columns,
+      records: mockOutput.records,
+      executionTime: mockOutput.executionTime,
+      tableName: dbConfig.databaseName,
+    });
 
     setIsMutationModalOpen(false);
     setPendingMutation(null);
   };
 
-  // Handle Mutation Deny
   const handleDenyMutation = () => {
     setIsMutationModalOpen(false);
     setPendingMutation(null);
   };
 
-  const isCustomized = leftWidthPct !== 40 || topHeightPct !== 60 || maximizedSection !== null;
+  const hasTurns = activeTurns.length > 0;
 
   return (
-    <div className="h-screen-dvh w-screen overflow-hidden bg-[#121110] text-stone-100 flex flex-col font-sans select-none antialiased">
-      {/* Top Application Header */}
+    <div className="h-screen-dvh w-screen overflow-hidden bg-[#0e0e11] text-[#f4f4f5] flex flex-col font-sans select-none antialiased">
+      {/* Top Navbar */}
       <Topbar
         dbName={dbConfig.databaseName}
         dbType={dbConfig.dbType}
         isConnected={true}
-        isLayoutCustomized={isCustomized}
-        onResetLayout={handleResetSplit}
       />
 
-      {/* Main Workspace Area */}
-      <main
-        ref={containerRef}
-        className="flex-1 min-h-0 min-w-0 p-2 sm:p-3 overflow-hidden relative"
-      >
-        {/* --- MOBILE WORKBENCH LAYOUT (< lg screens): HORIZONTALLY SPLIT IN TWO HALVES --- */}
-        <div className="lg:hidden w-full h-full min-h-0 min-w-0 flex flex-col gap-1.5 overflow-hidden">
-          {/* Top Half (50% Height): Prompt Writing Box */}
-          <div className="h-[48%] min-h-0 min-w-0 flex flex-col overflow-hidden">
-            <PromptInput
-              onGenerateAndRun={handleGenerateAndRun}
-              isLoading={isGenerating}
-              isMaximized={false}
-            />
-          </div>
+      {/* Main Container below Navbar: Left Panel + Unified Center Workspace */}
+      <div className="flex-1 min-h-0 min-w-0 flex flex-row overflow-hidden relative">
+        {/* Previous Operations Left Panel */}
+        <ChatHistoryPanel
+          operations={operations}
+          activeOperationId={activeOperationId}
+          onSelectOperation={handleSelectOperation}
+          onNewChat={handleNewChat}
+          onDeleteOperation={handleDeleteOperation}
+          onClearHistory={handleClearHistory}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+        />
 
-          {/* Horizontal Split Line Divider */}
-          <div className="h-1 my-0.5 flex items-center justify-center shrink-0">
-            <div className="w-16 h-1 rounded-full bg-[#292524]" />
-          </div>
-
-          {/* Bottom Half (50% Height): Generated SQL Query Output & Data Grid Switcher */}
-          <div className="h-[50%] flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden relative">
-            {/* Mobile Bottom-Pane View Selector Pill */}
-            <div className="flex items-center justify-between pb-1.5 shrink-0">
-              <div className="flex items-center space-x-1 bg-[#1c1917] p-0.5 rounded-xl border border-[#292524] text-[11px] font-medium shadow-inner">
-                <button
-                  onClick={() => setMobileTab("sql")}
-                  className={cn(
-                    "flex items-center space-x-1 px-2.5 py-0.5 rounded-lg transition-all",
-                    mobileTab === "sql"
-                      ? "bg-[#141210] text-[#3ecf8e] font-semibold border border-[#3ecf8e]/30 shadow-sm"
-                      : "text-stone-400 hover:text-stone-200"
-                  )}
-                >
-                  <Code2 className="w-3 h-3" />
-                  <span>Generated SQL</span>
-                </button>
-                <button
-                  onClick={() => setMobileTab("records")}
-                  className={cn(
-                    "flex items-center space-x-1 px-2.5 py-0.5 rounded-lg transition-all",
-                    mobileTab === "records"
-                      ? "bg-[#141210] text-[#3ecf8e] font-semibold border border-[#3ecf8e]/30 shadow-sm"
-                      : "text-stone-400 hover:text-stone-200"
-                  )}
-                >
-                  <Table2 className="w-3 h-3" />
-                  <span>Results Grid ({currentRecords.length})</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Bottom Pane Output Content */}
-            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-              {mobileTab === "records" ? (
-                <RecordsTable
-                  columns={currentColumns}
-                  records={currentRecords}
-                  isLoading={isGenerating}
-                  isMaximized={false}
-                />
-              ) : (
-                <SqlOutput
-                  sql={currentSql}
-                  graphql={currentGraphql}
-                  isGenerating={isGenerating}
-                  queryFormat={queryFormat}
-                  setQueryFormat={setQueryFormat}
-                  executionTime={stats.executionTime}
-                  tokens={stats.tokens}
-                  cost={stats.cost}
-                  dialect={`${dbConfig.dbType} 16`}
-                  isMaximized={false}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* --- DESKTOP RESIZABLE SPLIT WORKBENCH (≥ lg screens) --- */}
-        <div className="hidden lg:flex w-full h-full min-h-0 min-w-0 flex-row gap-0">
-          {/* CASE 1: FULL MAXIMIZED VIEW FOR A SECTION */}
-          {maximizedSection === "sql" && (
-            <div className="w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
-              <SqlOutput
-                sql={currentSql}
-                graphql={currentGraphql}
-                isGenerating={isGenerating}
-                queryFormat={queryFormat}
-                setQueryFormat={setQueryFormat}
-                executionTime={stats.executionTime}
-                tokens={stats.tokens}
-                cost={stats.cost}
-                dialect={`${dbConfig.dbType} 16`}
-                isMaximized={true}
-                onToggleMaximize={() => toggleMaximize("sql")}
-              />
-            </div>
-          )}
-
-          {maximizedSection === "prompt" && (
-            <div className="w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
+        {/* Center Main Workspace: SINGLE UNIFIED SCROLLBAR LIKE GEMINI */}
+        <main
+          ref={scrollContainerRef}
+          className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col relative bg-[#0c0c0f] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(56,189,248,0.05),rgba(0,0,0,0))]"
+        >
+          {/* CASE 1: INITIAL CLEAN STATE (Centered Prompt Box in Middle of Screen) */}
+          {!hasTurns ? (
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
               <PromptInput
-                onGenerateAndRun={handleGenerateAndRun}
+                value={currentPrompt}
+                onChange={setCurrentPrompt}
+                onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
-                isMaximized={true}
-                onToggleMaximize={() => toggleMaximize("prompt")}
+                isCentered={true}
               />
             </div>
-          )}
-
-          {maximizedSection === "records" && (
-            <div className="w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden animate-in fade-in duration-150">
-              <RecordsTable
-                columns={currentColumns}
-                records={currentRecords}
-                isLoading={isGenerating}
-                isMaximized={true}
-                onToggleMaximize={() => toggleMaximize("records")}
-              />
-            </div>
-          )}
-
-          {/* CASE 2: DEFAULT / RESIZABLE SPLIT VIEW */}
-          {maximizedSection === null && (
-            <>
-              {/* Left Column (Default 40% Width, resizable via drag handle) */}
-              <div
-                ref={leftColumnRef}
-                style={{ width: `${leftWidthPct}%` }}
-                className="h-full min-h-0 min-w-[260px] flex flex-col overflow-hidden transition-none shrink-0"
-              >
-                {/* Top Section of Left Column: SQL Output (Default 60% Height) */}
-                <div
-                  style={{ height: `${topHeightPct}%` }}
-                  className="min-h-[140px] min-w-0 flex flex-col overflow-hidden"
-                >
-                  <SqlOutput
-                    sql={currentSql}
-                    graphql={currentGraphql}
-                    isGenerating={isGenerating}
-                    queryFormat={queryFormat}
-                    setQueryFormat={setQueryFormat}
-                    executionTime={stats.executionTime}
-                    tokens={stats.tokens}
-                    cost={stats.cost}
-                    dialect={`${dbConfig.dbType} 16`}
-                    isMaximized={false}
-                    onToggleMaximize={() => toggleMaximize("sql")}
-                  />
-                </div>
-
-                {/* Vertical Boundary Expander / Drag Handle between SQL and Prompt */}
-                <div
-                  onMouseDown={handleMouseDownVertical}
-                  onDoubleClick={() => setTopHeightPct(60)}
-                  className="group h-2.5 my-0.5 cursor-row-resize flex items-center justify-center relative select-none shrink-0"
-                  title="Drag to resize height | Double-click to reset (60:40)"
-                >
-                  <div className="w-full h-[2px] bg-[#292524] group-hover:bg-[#3ecf8e]/60 transition-colors" />
-                  <div className="absolute px-2.5 py-0.5 rounded-full bg-[#1c1917] border border-[#292524] group-hover:border-[#3ecf8e]/60 text-stone-500 group-hover:text-[#3ecf8e] transition-all shadow-sm">
-                    <GripHorizontal className="w-2.5 h-2.5" />
+          ) : (
+            /* CASE 2: ACTIVE CHAT CONVERSATION (Sequential Turns Stream + Bottom Docked Input) */
+            <div className="flex flex-col min-h-full justify-between">
+              {/* Top Chat Turns Stream */}
+              <div className="flex-1 p-4 sm:p-6 space-y-6 max-w-4xl mx-auto w-full">
+                {/* Session Header Bar */}
+                <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] text-xs text-zinc-400">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8]" />
+                    <span className="font-semibold text-zinc-200 tracking-wider text-[11px]">
+                      Interactive Chat Session
+                    </span>
+                    <span className="text-zinc-600">•</span>
+                    <span className="font-mono text-zinc-400">
+                      {activeTurns.length} {activeTurns.length === 1 ? "Turn" : "Turns"}
+                    </span>
                   </div>
+
+                  <button
+                    onClick={handleNewChat}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-300 hover:text-white transition-all text-xs cursor-pointer shadow-sm"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Start New Chat</span>
+                  </button>
                 </div>
 
-                {/* Bottom Section of Left Column: Prompt Input (Default 40% Height) */}
-                <div
-                  style={{ height: `calc(${100 - topHeightPct}% - 0.625rem)` }}
-                  className="min-h-[120px] min-w-0 flex flex-col overflow-hidden"
-                >
+                {/* Render Each Chat Turn in Sequence */}
+                {activeTurns.map((turn, turnIdx) => (
+                  <div key={turn.id} className="space-y-3.5 animate-in fade-in duration-200">
+                    {/* User Prompt Bubble */}
+                    <div className="flex items-start space-x-3 bg-[#141418]/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-4 sm:p-4.5 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+                      <div className="w-7 h-7 rounded-xl bg-white/[0.06] border border-white/[0.1] text-sky-400 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-zinc-200">You</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            Turn #{turnIdx + 1} • {turn.timestamp}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-zinc-100 leading-relaxed font-normal select-text">
+                          {turn.userPrompt}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* AI Response: Generated Query Code Box */}
+                    <div className="rounded-2xl shadow-xl overflow-hidden border border-white/[0.06]">
+                      <SqlOutput
+                        sql={turn.sql}
+                        graphql={turn.graphql}
+                        onUpdateSql={(newSql) => handleUpdateSql(turn.id, newSql)}
+                        onRunQuery={(q) => handleRunQuery(turn.id, q)}
+                        isGenerating={turn.isGenerating}
+                        isExecuting={turn.isExecuting}
+                        queryFormat={turn.queryFormat}
+                        setQueryFormat={(fmt) => handleSetFormat(turn.id, fmt)}
+                        executionTime={turn.executionTime}
+                        tokens={turn.tokens}
+                        cost={turn.cost}
+                        dialect={`${dbConfig.dbType} 16`}
+                      />
+                    </div>
+
+                    {/* Collapsible Output Box: Re-inspect output or open popup without re-executing */}
+                    <div className="pt-0.5">
+                      <OutputSummaryBox
+                        hasRun={turn.hasRun}
+                        onOpenModal={() => handleOpenOutputModal(turn)}
+                        onRunQuery={() => handleRunQuery(turn.id)}
+                        records={turn.records}
+                        columns={turn.columns}
+                        executionTime={turn.executionTime}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Bottom marker for smooth auto-scroll */}
+                <div ref={turnsEndRef} className="h-2" />
+              </div>
+
+              {/* Gemini-Style Sticky Bottom Input Bar */}
+              <div className="sticky bottom-0 z-20 w-full bg-gradient-to-t from-[#0c0c0f] via-[#0c0c0f]/95 to-transparent pt-4 pb-5 px-4 sm:px-6">
+                <div className="max-w-4xl mx-auto w-full">
                   <PromptInput
-                    onGenerateAndRun={handleGenerateAndRun}
+                    value={currentPrompt}
+                    onChange={setCurrentPrompt}
+                    onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
-                    isMaximized={false}
-                    onToggleMaximize={() => toggleMaximize("prompt")}
+                    isCentered={false}
                   />
                 </div>
               </div>
-
-              {/* Horizontal Boundary Expander / Drag Handle between Left and Right Columns */}
-              <div
-                onMouseDown={handleMouseDownHorizontal}
-                onDoubleClick={() => setLeftWidthPct(40)}
-                className="group w-3 mx-0.5 hidden lg:flex flex-col items-center justify-center cursor-col-resize relative select-none shrink-0"
-                title="Drag to resize columns | Double-click to reset (40:60)"
-              >
-                <div className="h-full w-[2px] bg-[#292524] group-hover:bg-[#3ecf8e]/60 transition-colors" />
-                <div className="absolute py-2.5 px-0.5 rounded-full bg-[#1c1917] border border-[#292524] group-hover:border-[#3ecf8e]/60 text-stone-500 group-hover:text-[#3ecf8e] transition-all shadow-sm">
-                  <GripVertical className="w-2.5 h-2.5" />
-                </div>
-              </div>
-
-              {/* Right Column (Default 60% Width, resizable via drag handle) */}
-              <div
-                style={{ width: `calc(${100 - leftWidthPct}% - 0.75rem)` }}
-                className="h-full min-h-0 min-w-[280px] flex flex-col overflow-hidden flex-1"
-              >
-                <RecordsTable
-                  columns={currentColumns}
-                  records={currentRecords}
-                  isLoading={isGenerating}
-                  isMaximized={false}
-                  onToggleMaximize={() => toggleMaximize("records")}
-                />
-              </div>
-            </>
+            </div>
           )}
-        </div>
-      </main>
+        </main>
+      </div>
 
-      {/* Security Mutation Interception Modal */}
+      {/* Output Results Popup Modal */}
+      <OutputResultsModal
+        isOpen={modalOutputData.isOpen}
+        onClose={() => setModalOutputData((prev) => ({ ...prev, isOpen: false }))}
+        columns={modalOutputData.columns}
+        records={modalOutputData.records}
+        executionTime={modalOutputData.executionTime}
+        tableName={modalOutputData.tableName}
+      />
+
+      {/* Security Mutation Warning Modal */}
       <MutationWarningModal
         isOpen={isMutationModalOpen}
         onDeny={handleDenyMutation}
@@ -419,7 +563,21 @@ export default function QueryStudioPage() {
         targetTable={pendingMutation?.targetTable}
         mutationType={pendingMutation?.mutationType}
       />
+
+      {/* Antigravity-Style Settings Popup Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSave={(newConfig: DatabaseConfig) => {
+          setDbConfig((prev) => ({
+            ...prev,
+            dbType: newConfig.dbType,
+            databaseName: newConfig.databaseName,
+            enableQueryGuard: newConfig.enableQueryGuard,
+            llmProvider: newConfig.llmProvider,
+          }));
+        }}
+      />
     </div>
   );
 }
-

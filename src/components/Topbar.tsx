@@ -63,39 +63,33 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   return (
     <>
-      <header className="h-14 sm:h-16 border-b border-[#292524] bg-[#171513]/90 backdrop-blur-2xl px-3 sm:px-6 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm min-w-0">
-        {/* Brand & Logo */}
-        <div className="flex items-center space-x-2.5 sm:space-x-6 min-w-0">
+      <header className="h-14 sm:h-16 border-b border-[#1e1e24] bg-[#0e0e11]/95 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm min-w-0">
+        {/* Brand & Breadcrumbs */}
+        <div className="flex items-center space-x-3 sm:space-x-5 min-w-0">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-1.5 rounded-xl bg-[#141210] border border-[#292524] text-stone-300 hover:text-stone-100 hover:bg-[#1c1917] transition-all"
+            className="md:hidden p-2 rounded-xl bg-[#151518] border border-[#222226] text-zinc-300 hover:text-white hover:bg-[#1a1a1f] transition-all cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
-            {mobileMenuOpen ? <X className="w-4 h-4 text-stone-200" /> : <Menu className="w-4 h-4 text-stone-200" />}
+            {mobileMenuOpen ? <X className="w-5 h-5 text-zinc-200" /> : <Menu className="w-5 h-5 text-zinc-200" />}
           </button>
 
-          <Link href="/" className="flex items-center space-x-2 sm:space-x-3 cursor-pointer group shrink-0">
-            <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-[#3ecf8e] via-[#22c55e] to-emerald-600 shadow-md shadow-[#3ecf8e]/20 group-hover:shadow-[#3ecf8e]/35 transition-all duration-300">
-              <Database className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#0a1a12]" />
-              <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
+          <Link href="/" className="flex items-center space-x-2.5 cursor-pointer group shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#18181c] border border-[#27272f] text-zinc-200 group-hover:text-white group-hover:border-zinc-500 transition-all">
+              <Database className="w-4.5 h-4.5 text-[#38bdf8]" />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center space-x-1.5">
-                <span className="font-bold text-sm sm:text-base tracking-tight bg-gradient-to-r from-stone-100 via-stone-200 to-[#3ecf8e] bg-clip-text text-transparent">
-                  SchemaAI
-                </span>
-              </div>
-              <p className="text-[10px] sm:text-[11px] text-stone-400 hidden lg:block font-medium truncate">
-                Intelligent Query Generator
-              </p>
+            <div className="flex items-center space-x-2 text-sm text-zinc-400">
+              <span className="text-zinc-100 font-semibold text-base">SchemaAI</span>
+              <span className="text-zinc-600">/</span>
+              <span className="text-zinc-300 font-normal hidden sm:inline">Query Studio</span>
             </div>
           </Link>
 
-          <div className="hidden md:block h-5 w-[1px] bg-[#292524] shrink-0" />
+          <div className="hidden md:block h-5 w-[1px] bg-[#1e1e24] shrink-0" />
 
           {/* Desktop/Tablet Tab Navigation */}
-          <nav className="hidden md:flex items-center space-x-1 bg-[#141210]/90 p-1 rounded-2xl border border-[#292524] shadow-inner shrink-0">
+          <nav className="hidden md:flex items-center space-x-1.5 bg-[#121215] p-1 rounded-xl border border-[#1e1e24] shrink-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -103,26 +97,19 @@ export const Topbar: React.FC<TopbarProps> = ({
                   key={tab.href}
                   href={tab.href}
                   className={cn(
-                    "relative flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 shrink-0",
+                    "relative flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-sm transition-all duration-150 shrink-0 cursor-pointer",
                     tab.isActive
-                      ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md shadow-black/40"
-                      : "text-stone-400 hover:text-stone-200 hover:bg-stone-800/40"
+                      ? "bg-[#1c1c22] text-[#f4f4f5] font-medium shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-[#16161a]"
                   )}
                 >
                   <Icon
                     className={cn(
-                      "w-3.5 h-3.5 transition-colors shrink-0",
-                      tab.isActive ? "text-[#3ecf8e]" : "text-stone-400"
+                      "w-4 h-4 transition-colors shrink-0",
+                      tab.isActive ? "text-[#38bdf8]" : "text-zinc-500"
                     )}
                   />
-                  <span className={cn(tab.isActive ? "font-semibold text-stone-100" : "")}>
-                    {tab.label}
-                  </span>
-                  {tab.isActive && (
-                    <span className="hidden xl:inline-flex text-[10px] px-1.5 py-0.2 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono shrink-0">
-                      {tab.badge}
-                    </span>
-                  )}
+                  <span>{tab.label}</span>
                 </Link>
               );
             })}
@@ -130,66 +117,41 @@ export const Topbar: React.FC<TopbarProps> = ({
         </div>
 
         {/* Right Controls */}
-        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
-          {/* Reset Split Button */}
+        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          {/* Reset View Button */}
           {isLayoutCustomized && onResetLayout && (
             <button
               onClick={onResetLayout}
-              className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#141210] border border-[#3ecf8e]/40 hover:border-[#3ecf8e] text-[#3ecf8e] hover:text-[#6ee7b7] text-xs font-medium transition-all hover:bg-[#1c1917] shadow-inner animate-in fade-in duration-200 group shrink-0"
-              title="Reset workspace to default 40:60 split layout"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#151518] border border-[#222226] hover:border-zinc-600 text-zinc-300 hover:text-white text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+              title="Reset workspace layout"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-[#3ecf8e] group-hover:-rotate-90 transition-transform duration-300 shrink-0" />
-              <span className="hidden md:inline font-mono text-[11px]">Reset Split (40:60)</span>
-              <span className="md:hidden font-mono text-[10px]">Reset</span>
+              <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+              <span className="hidden md:inline">Reset View</span>
             </button>
           )}
 
           {/* Database Connection Status Pill */}
-          <Link
-            href="/settings"
-            className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-xs text-stone-300 transition-all hover:bg-[#1c1917] group shadow-inner shrink-0"
-            title="Click to configure Database & LLM settings"
+          <div
+            className="hidden lg:flex items-center space-x-2.5 px-3 py-1.5 rounded-xl bg-[#151518] border border-[#222226] text-xs sm:text-sm text-zinc-300 shadow-sm shrink-0"
+            title="Database Connection"
           >
             <div className="relative flex items-center justify-center shrink-0">
               <span
                 className={cn(
                   "w-2 h-2 rounded-full",
-                  isConnected ? "bg-[#3ecf8e] shadow-[0_0_8px_#3ecf8e]" : "bg-rose-500"
+                  isConnected ? "bg-[#38bdf8] shadow-[0_0_6px_#38bdf8]" : "bg-rose-500"
                 )}
               />
-              {isConnected && (
-                <span className="absolute w-3.5 h-3.5 rounded-full bg-[#3ecf8e]/30 animate-emerald-pulse" />
-              )}
             </div>
-            <span className="font-semibold text-stone-200 text-xs">{dbType}</span>
-            <span className="text-stone-600 font-mono">•</span>
-            <div className="flex items-center space-x-1 text-stone-400 group-hover:text-[#3ecf8e] transition-colors truncate max-w-[100px]">
-              <Server className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-              <span className="font-mono text-[10px] truncate">{dbName}</span>
-            </div>
-            <ChevronDown className="w-3 h-3 text-stone-500 group-hover:text-stone-300 transition-transform shrink-0" />
-          </Link>
-
-          {/* Settings Gear Button */}
-          <Link
-            href="/settings"
-            className={cn(
-              "relative p-2 rounded-2xl bg-[#141210]/90 border border-[#292524] hover:border-stone-700 text-stone-400 hover:text-[#3ecf8e] hover:bg-[#1c1917] transition-all duration-200 group shadow-inner shrink-0",
-              pathname === "/settings" && "text-[#3ecf8e] border-[#3ecf8e]/40 bg-[#1c1917]"
-            )}
-            title="Database & AI Settings"
-          >
-            <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#3ecf8e] shadow-[0_0_6px_#3ecf8e]" />
-          </Link>
+            <span className="text-zinc-200 font-mono font-medium">{dbType}</span>
+            <span className="text-zinc-600">•</span>
+            <span className="font-mono text-zinc-400 truncate max-w-[120px]">{dbName}</span>
+          </div>
 
           {/* User Profile Avatar */}
-          <div className="flex items-center space-x-2 pl-0.5 shrink-0">
-            <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-2xl bg-gradient-to-br from-amber-700 to-stone-800 p-[1.5px] cursor-pointer shadow-md hover:shadow-amber-500/10 transition-shadow">
-              <div className="w-full h-full rounded-[14px] bg-[#141210] flex items-center justify-center font-bold text-xs text-stone-200">
-                SB
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#3ecf8e] border-2 border-[#141210] shadow-sm" />
+          <div className="flex items-center pl-1 shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#202026] border border-[#27272f] flex items-center justify-center font-semibold text-xs text-zinc-200 cursor-pointer">
+              SB
             </div>
           </div>
         </div>
@@ -199,22 +161,22 @@ export const Topbar: React.FC<TopbarProps> = ({
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden flex flex-col animate-in fade-in duration-200">
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-md"
+            className="fixed inset-0 bg-black/75 backdrop-blur-md"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="relative w-full bg-[#171412] border-b border-[#292524] p-4 shadow-2xl space-y-4 z-50 animate-in slide-in-from-top-4 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-[#292524]">
+          <div className="relative w-full bg-[#141210] border-b border-[#26221F] p-4 shadow-2xl space-y-4 z-50 animate-in slide-in-from-top-4 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#26221F]">
               <div className="flex items-center space-x-2">
-                <Radio className="w-4 h-4 text-[#3ecf8e] animate-pulse" />
-                <span className="font-bold text-xs text-stone-200 uppercase tracking-wider">
+                <Radio className="w-5 h-5 text-[#38bdf8] animate-pulse" />
+                <span className="font-semibold text-sm text-zinc-100 uppercase tracking-wider">
                   SchemaAI Navigation
                 </span>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-1 rounded-xl text-stone-400 hover:text-stone-100"
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-white cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -228,17 +190,17 @@ export const Topbar: React.FC<TopbarProps> = ({
                     href={tab.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
-                      "flex items-center justify-between p-3 rounded-xl text-xs font-medium transition-all",
+                      "flex items-center justify-between p-3.5 rounded-xl text-sm font-medium transition-all",
                       tab.isActive
-                        ? "bg-[#1c1917] text-[#3ecf8e] border border-[#3ecf8e]/30 shadow-md"
-                        : "text-stone-300 hover:bg-[#141210] border border-transparent"
+                        ? "bg-[#18181c] text-[#38bdf8] border border-[#38bdf8]/30 shadow-md"
+                        : "text-zinc-300 hover:bg-[#16161a] border border-transparent"
                     )}
                   >
-                    <div className="flex items-center space-x-2.5">
-                      <Icon className={cn("w-4 h-4", tab.isActive ? "text-[#3ecf8e]" : "text-stone-400")} />
-                      <span className="font-semibold text-stone-100">{tab.label}</span>
+                    <div className="flex items-center space-x-3">
+                      <Icon className={cn("w-5 h-5", tab.isActive ? "text-[#38bdf8]" : "text-zinc-400")} />
+                      <span className="font-medium text-zinc-100">{tab.label}</span>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3ecf8e]/15 text-[#3ecf8e] font-mono">
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#38bdf8]/15 text-[#38bdf8] font-mono">
                       {tab.badge}
                     </span>
                   </Link>
@@ -247,19 +209,14 @@ export const Topbar: React.FC<TopbarProps> = ({
             </div>
 
             {/* Mobile Database Connection Banner */}
-            <Link
-              href="/settings"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-between p-3 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-300"
-            >
-              <div className="flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-[#3ecf8e] shadow-[0_0_8px_#3ecf8e]" />
-                <span className="font-mono text-[#3ecf8e] font-semibold">{dbType}</span>
-                <span className="text-stone-500">•</span>
-                <span className="font-mono text-stone-300 text-[11px]">{dbName}</span>
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#16161a] border border-[#222226] text-sm text-zinc-300">
+              <div className="flex items-center space-x-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8]" />
+                <span className="font-mono text-[#38bdf8] font-medium">{dbType}</span>
+                <span className="text-zinc-500">•</span>
+                <span className="font-mono text-zinc-300 text-xs">{dbName}</span>
               </div>
-              <Settings className="w-4 h-4 text-stone-400" />
-            </Link>
+            </div>
           </div>
         </div>
       )}

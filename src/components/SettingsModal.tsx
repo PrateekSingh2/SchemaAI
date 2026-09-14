@@ -103,39 +103,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none">
       <div
-        className="relative w-full max-w-2xl rounded-2xl bg-[#171412] border border-[#292524] shadow-2xl overflow-hidden text-stone-200 supabase-modal"
+        className="relative w-full max-w-2xl rounded-2xl bg-[#16161a] border border-[#26262b] shadow-2xl overflow-hidden text-[#f4f4f5] flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Accent Line */}
+        <div className="h-1 w-full bg-gradient-to-r from-[#38bdf8] via-blue-500 to-indigo-500 shrink-0" />
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#292524] bg-[#141210]">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#222226] bg-[#121215] shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]">
+            <div className="p-2.5 rounded-xl bg-[#38bdf8]/10 border border-[#38bdf8]/25 text-[#38bdf8] shrink-0">
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-stone-100 tracking-tight">
-                Database & AI Engine Configuration
+              <h2 className="text-base sm:text-lg font-semibold text-zinc-100 tracking-tight">
+                Settings & Database Configuration
               </h2>
-              <p className="text-xs text-stone-400">
-                Manage relational schemas, API credentials, and query guard rails
+              <p className="text-xs sm:text-sm text-zinc-400">
+                Manage relational connection, LLM providers, and safety guard rails
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-stone-400 hover:text-stone-100 hover:bg-stone-800 transition-colors"
+            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Sub-navigation Tabs */}
-        <div className="px-6 pt-3 pb-0 bg-[#141210]/60 border-b border-[#292524] flex items-center space-x-2">
+        {/* Modal Navigation Tabs */}
+        <div className="px-5 sm:px-6 pt-2 bg-[#121215] border-b border-[#222226] flex items-center space-x-2 shrink-0">
           {[
             { id: "database" as const, label: "Database Connection", icon: Database },
-            { id: "ai" as const, label: "AI Engine & LLM", icon: Sparkles },
+            { id: "ai" as const, label: "AI Model & Engine", icon: Sparkles },
             { id: "security" as const, label: "Mutation Guard", icon: Shield },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -145,13 +148,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 key={tab.id}
                 onClick={() => setActiveSettingsTab(tab.id)}
                 className={cn(
-                  "flex items-center space-x-2 px-3.5 py-2 text-xs font-medium border-b-2 transition-all duration-200 -mb-[1px]",
+                  "flex items-center space-x-2 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-all duration-150 -mb-[1px] cursor-pointer",
                   isActive
-                    ? "border-[#3ecf8e] text-[#3ecf8e] font-semibold"
-                    : "border-transparent text-stone-400 hover:text-stone-200"
+                    ? "border-[#38bdf8] text-[#38bdf8] font-semibold"
+                    : "border-transparent text-zinc-400 hover:text-zinc-200"
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
               </button>
             );
@@ -159,14 +162,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
+        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {/* TAB 1: DATABASE */}
           {activeSettingsTab === "database" && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Engine Selector */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-300">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-200">
                     Database Engine
                   </label>
                   <select
@@ -174,7 +177,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onChange={(e) =>
                       setConfig({ ...config, dbType: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-[#141210] border border-[#292524] text-sm text-stone-200 focus:outline-none focus:border-[#3ecf8e] focus:ring-1 focus:ring-[#3ecf8e]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                   >
                     <option value="PostgreSQL">PostgreSQL (15/16)</option>
                     <option value="Supabase">Supabase PostgreSQL</option>
@@ -186,8 +189,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Database Name */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-300">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-200">
                     Database Name
                   </label>
                   <input
@@ -197,20 +200,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       setConfig({ ...config, databaseName: e.target.value })
                     }
                     placeholder="production_core_db"
-                    className="w-full px-3 py-2 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] focus:ring-1 focus:ring-[#3ecf8e] font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                   />
                 </div>
               </div>
 
               {/* Connection URI */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-[#3ecf8e]" />
+                  <label className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-[#38bdf8]" />
                     <span>Connection URI</span>
                   </label>
-                  <span className="text-[10px] text-[#3ecf8e] font-mono">
-                    SSL Mode Required
+                  <span className="text-xs text-[#38bdf8] font-mono">
+                    SSL Enabled
                   </span>
                 </div>
                 <div className="relative">
@@ -221,17 +224,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       setConfig({ ...config, connectionUri: e.target.value })
                     }
                     placeholder="postgresql://user:password@host:5432/db"
-                    className="w-full pl-3 pr-9 py-2 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] focus:ring-1 focus:ring-[#3ecf8e] font-mono"
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                   />
-                  <Lock className="w-3.5 h-3.5 text-stone-500 absolute right-3 top-2.5" />
+                  <Lock className="w-4 h-4 text-zinc-500 absolute right-3.5 top-3" />
                 </div>
               </div>
 
               {/* Username & Password */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-300 flex items-center gap-1">
-                    <User className="w-3 h-3 text-stone-400" /> Username
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-zinc-400" /> Username
                   </label>
                   <input
                     type="text"
@@ -240,13 +243,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       setConfig({ ...config, username: e.target.value })
                     }
                     placeholder="postgres.admin"
-                    className="w-full px-3 py-2 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-300 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-stone-400" /> Password
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-zinc-400" /> Password
                   </label>
                   <div className="relative">
                     <input
@@ -256,17 +259,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         setConfig({ ...config, password: e.target.value })
                       }
                       placeholder="••••••••••••"
-                      className="w-full pl-3 pr-8 py-2 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] font-mono"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-2.5 text-stone-500 hover:text-stone-300"
+                      className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
                     >
                       {showPassword ? (
-                        <EyeOff className="w-3.5 h-3.5" />
+                        <EyeOff className="w-4 h-4" />
                       ) : (
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-4 h-4" />
                       )}
                     </button>
                   </div>
@@ -279,8 +282,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeSettingsTab === "ai" && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-300">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-200">
                     Model Provider
                   </label>
                   <select
@@ -291,17 +294,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         llmProvider: e.target.value as "openai" | "anthropic" | "custom",
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-[#141210] border border-[#292524] text-sm text-stone-200 focus:outline-none focus:border-[#3ecf8e]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                   >
-                    <option value="openai">OpenAI GPT-4o (Recommended)</option>
+                    <option value="openai">OpenAI GPT-4o (Default)</option>
                     <option value="anthropic">Anthropic Claude 3.5 Sonnet</option>
                     <option value="custom">Self-Hosted DeepSeek-V3 / Ollama</option>
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-300 flex items-center gap-1">
-                    <Key className="w-3 h-3 text-[#3ecf8e]" /> API Secret Key
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-[#38bdf8]" /> API Secret Key
                   </label>
                   <div className="relative">
                     <input
@@ -311,27 +314,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         setConfig({ ...config, llmApiKey: e.target.value })
                       }
                       placeholder="sk-proj-..."
-                      className="w-full pl-3 pr-8 py-2 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] font-mono"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-2.5 top-2.5 text-stone-500 hover:text-stone-300"
+                      className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
                     >
                       {showApiKey ? (
-                        <EyeOff className="w-3.5 h-3.5" />
+                        <EyeOff className="w-4 h-4" />
                       ) : (
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-4 h-4" />
                       )}
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-300 flex items-start space-x-2.5 shadow-inner">
-                <Cpu className="w-4 h-4 text-[#3ecf8e] shrink-0 mt-0.5" />
-                <p>
-                  SchemaAI uses zero-shot relational schema embeddings to translate plain English prompts into highly optimized ASTs with sub-50ms execution overhead.
+              <div className="p-4 rounded-xl bg-[#121215] border border-[#222226] text-sm text-zinc-300 flex items-start space-x-3 shadow-inner">
+                <Cpu className="w-5 h-5 text-[#38bdf8] shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  SchemaAI utilizes zero-shot relational schema embeddings to translate natural language prompts into optimized ASTs with fast sub-50ms synthesis overhead.
                 </p>
               </div>
             </div>
@@ -340,16 +343,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 3: SECURITY GUARD */}
           {activeSettingsTab === "security" && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="p-4 rounded-2xl bg-[#141210] border border-[#292524] flex items-center justify-between shadow-inner">
+              <div className="p-4 rounded-2xl bg-[#121215] border border-[#222226] flex items-center justify-between shadow-inner">
                 <div className="space-y-1 pr-4">
                   <div className="flex items-center space-x-2">
-                    <Shield className="w-4 h-4 text-[#3ecf8e]" />
-                    <span className="font-semibold text-sm text-stone-100">
+                    <Shield className="w-5 h-5 text-[#38bdf8]" />
+                    <span className="font-semibold text-sm sm:text-base text-zinc-100">
                       Strict Mutation Guard Rails
                     </span>
                   </div>
-                  <p className="text-xs text-stone-400">
-                    Intercept and require explicit approval before running any destructive DDL/DML statements (`DELETE`, `UPDATE`, `DROP`).
+                  <p className="text-xs sm:text-sm text-zinc-400">
+                    Intercept and require explicit admin escalation before running destructive DDL/DML statements (<code className="text-rose-400">DELETE</code>, <code className="text-rose-400">UPDATE</code>, <code className="text-rose-400">DROP</code>).
                   </p>
                 </div>
 
@@ -362,18 +365,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-stone-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3ecf8e] shadow-inner" />
+                  <div className="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38bdf8] shadow-inner" />
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-[#141210] border border-[#292524] space-y-1 shadow-inner">
-                  <span className="text-stone-400 text-[11px]">SQL Injection Defense</span>
-                  <p className="text-[#3ecf8e] font-semibold">Active (Parameterized AST)</p>
+              <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
+                <div className="p-3.5 rounded-xl bg-[#121215] border border-[#222226] space-y-1 shadow-inner">
+                  <span className="text-zinc-400 text-xs">SQL Injection Defense</span>
+                  <p className="text-[#38bdf8] font-semibold">Active (Parameterized AST)</p>
                 </div>
-                <div className="p-3 rounded-xl bg-[#141210] border border-[#292524] space-y-1 shadow-inner">
-                  <span className="text-stone-400 text-[11px]">Audit Telemetry Logging</span>
-                  <p className="text-amber-400 font-semibold">Immutable On-Disk Cache</p>
+                <div className="p-3.5 rounded-xl bg-[#121215] border border-[#222226] space-y-1 shadow-inner">
+                  <span className="text-zinc-400 text-xs">Audit Telemetry Logging</span>
+                  <p className="text-amber-400 font-semibold">Immutable On-Disk Log</p>
                 </div>
               </div>
             </div>
@@ -383,24 +386,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {testResult.status !== "idle" && (
             <div
               className={cn(
-                "p-3.5 rounded-xl border text-xs flex items-start space-x-3 animate-in fade-in duration-200",
+                "p-4 rounded-xl border text-sm flex items-start space-x-3 animate-in fade-in duration-200",
                 testResult.status === "success"
-                  ? "bg-[#3ecf8e]/10 border-[#3ecf8e]/30 text-[#3ecf8e]"
+                  ? "bg-[#38bdf8]/10 border-[#38bdf8]/30 text-[#38bdf8]"
                   : "bg-rose-950/30 border-rose-500/30 text-rose-300"
               )}
             >
               {testResult.status === "success" ? (
-                <CheckCheck className="w-4 h-4 text-[#3ecf8e] mt-0.5 shrink-0" />
+                <CheckCheck className="w-5 h-5 text-[#38bdf8] mt-0.5 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+                <AlertCircle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
               )}
               <div className="flex-1 space-y-1">
                 <p className="font-medium">{testResult.message}</p>
                 {testResult.latencyMs && (
-                  <div className="flex items-center space-x-3 text-[11px] text-[#3ecf8e]/90 font-mono">
+                  <div className="flex items-center space-x-3 text-xs text-[#38bdf8]/90 font-mono">
                     <span>⚡ Roundtrip: {testResult.latencyMs}ms</span>
                     <span>•</span>
-                    <span>Pool Status: 10/10 Available</span>
+                    <span>Pool Status: 10/10 Ready</span>
                   </div>
                 )}
               </div>
@@ -409,21 +412,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-[#292524] bg-[#141210] flex items-center justify-between">
+        <div className="px-5 sm:px-6 py-4 border-t border-[#222226] bg-[#121215] flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={handleTestConnection}
             disabled={isTesting}
-            className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-[#1c1917] hover:bg-[#201d1a] text-stone-300 hover:text-stone-100 border border-[#292524] text-xs font-medium transition-all disabled:opacity-50"
+            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-[#1b1b20] hover:bg-[#25252e] text-zinc-200 hover:text-white border border-[#26262b] text-sm font-medium transition-all disabled:opacity-50 cursor-pointer"
           >
             {isTesting ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#3ecf8e]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#38bdf8]" />
                 <span>Testing Handshake...</span>
               </>
             ) : (
               <>
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <Zap className="w-4 h-4 text-amber-400" />
                 <span>Test Connection</span>
               </>
             )}
@@ -433,7 +436,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-stone-400 hover:text-stone-100 hover:bg-stone-800 text-xs font-medium transition-colors"
+              className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#202026] text-sm font-medium transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -441,16 +444,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               type="button"
               onClick={handleSaveAndIntrospect}
               disabled={isSaving}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#3ecf8e] to-[#22c55e] hover:from-[#34d399] hover:to-[#16a34a] text-[#0a1a12] font-bold text-xs shadow-lg shadow-[#3ecf8e]/20 transition-all disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2 rounded-xl bg-[#38bdf8] hover:bg-[#0284c7] text-black font-semibold text-sm shadow-lg shadow-[#38bdf8]/20 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Syncing Schema...</span>
                 </>
               ) : (
                 <>
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="w-4 h-4" />
                   <span>Save & Introspect</span>
                 </>
               )}

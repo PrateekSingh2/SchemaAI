@@ -40,7 +40,7 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-[#171412] border border-rose-500/40 shadow-2xl shadow-rose-950/60 text-stone-200 supabase-modal"
+        className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-[#16161a] border border-rose-500/40 shadow-2xl shadow-rose-950/60 text-zinc-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Hazard Accent Bar */}
@@ -58,17 +58,17 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
                   <Flame className="w-3 h-3 text-rose-400" />
                   <span>Permission Escalation Required: Mutation Detected</span>
                 </div>
-                <h2 className="text-sm sm:text-base font-bold text-stone-100 tracking-tight">
+                <h2 className="text-sm sm:text-base font-bold text-zinc-100 tracking-tight">
                   Dangerous Operation Intercepted
                 </h2>
-                <p className="text-[11px] sm:text-xs text-stone-400">
+                <p className="text-[11px] sm:text-xs text-zinc-400">
                   SchemaAI Query Guard intercepted an unprivileged write/drop command before database execution.
                 </p>
               </div>
             </div>
             <button
               onClick={onDeny}
-              className="p-1 rounded-xl text-stone-400 hover:text-stone-100 hover:bg-stone-800 transition-colors"
+              className="p-1 rounded-xl text-zinc-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -77,18 +77,18 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
 
         {/* Metadata Details Grid */}
         <div className="px-4 sm:px-6 py-2 space-y-3 sm:space-y-4">
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl bg-[#141210] border border-[#292524] text-xs shadow-inner">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl bg-[#121215] border border-[#26262b] text-xs shadow-inner">
             <div className="space-y-1">
-              <span className="text-stone-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
-                <Server className="w-3.5 h-3.5 text-[#3ecf8e]" /> Target Table
+              <span className="text-zinc-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
+                <Server className="w-3.5 h-3.5 text-[#38bdf8]" /> Target Table
               </span>
-              <p className="font-mono font-bold text-[#3ecf8e] text-[11px] sm:text-xs truncate">
+              <p className="font-mono font-bold text-[#38bdf8] text-[11px] sm:text-xs truncate">
                 public.{targetTable}
               </p>
             </div>
 
             <div className="space-y-1">
-              <span className="text-stone-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
+              <span className="text-zinc-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
                 <AlertOctagon className="w-3.5 h-3.5 text-amber-400" /> Operation Type
               </span>
               <p className="font-mono font-bold text-rose-400 truncate text-[11px] sm:text-xs">
@@ -97,17 +97,17 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <span className="text-stone-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
+              <span className="text-zinc-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
                 <Terminal className="w-3.5 h-3.5 text-purple-400" /> Client IP
               </span>
-              <p className="font-mono text-stone-200 text-[11px] sm:text-xs">{clientIp}</p>
+              <p className="font-mono text-zinc-200 text-[11px] sm:text-xs">{clientIp}</p>
             </div>
 
             <div className="space-y-1">
-              <span className="text-stone-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
+              <span className="text-zinc-400 text-[10px] sm:text-[11px] flex items-center gap-1.5">
                 <Laptop className="w-3.5 h-3.5 text-amber-400" /> Origin Device
               </span>
-              <p className="font-mono text-stone-200 truncate text-[11px] sm:text-xs" title={clientDevice}>
+              <p className="font-mono text-zinc-200 truncate text-[11px] sm:text-xs" title={clientDevice}>
                 {clientDevice}
               </p>
             </div>
@@ -115,13 +115,13 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
 
           {/* SQL Payload Preview */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-stone-400">
-              <span className="font-semibold text-stone-300 text-xs">Intercepted SQL Payload</span>
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span className="font-semibold text-zinc-300 text-xs">Intercepted SQL Payload</span>
               <span className="text-[9px] sm:text-[10px] text-rose-400 font-mono font-bold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
                 RISK: CRITICAL
               </span>
             </div>
-            <div className="relative rounded-xl bg-black/90 border border-[#292524] p-3 sm:p-3.5 font-mono text-[11px] sm:text-xs text-rose-200 overflow-x-auto shadow-inner">
+            <div className="relative rounded-xl bg-black/90 border border-[#26262b] p-3 sm:p-3.5 font-mono text-[11px] sm:text-xs text-rose-200 overflow-x-auto shadow-inner">
               <pre className="whitespace-pre-wrap leading-relaxed">{sqlSnippet}</pre>
             </div>
           </div>
@@ -136,11 +136,11 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
         </div>
 
         {/* Modal Action Controls */}
-        <div className="p-4 sm:p-6 pt-3 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:space-x-3 bg-[#141210] border-t border-[#292524] mt-3">
+        <div className="p-4 sm:p-6 pt-3 sm:pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:space-x-3 bg-[#121215] border-t border-[#26262b] mt-3">
           <button
             type="button"
             onClick={onDeny}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-[#1c1917] hover:bg-rose-950/60 hover:text-rose-200 hover:border-rose-700/60 border border-[#292524] text-stone-300 text-xs font-semibold transition-all duration-200"
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-[#16161a] hover:bg-rose-950/60 hover:text-rose-200 hover:border-rose-700/60 border border-[#26262b] text-zinc-300 text-xs font-semibold transition-all duration-200 cursor-pointer"
           >
             <Ban className="w-4 h-4 text-rose-400" />
             <span>Deny (Block & Log)</span>
@@ -149,7 +149,7 @@ export const MutationWarningModal: React.FC<MutationWarningModalProps> = ({
           <button
             type="button"
             onClick={onGrant}
-            className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3ecf8e] via-[#22c55e] to-emerald-500 hover:from-[#34d399] hover:to-[#16a34a] text-[#0a1a12] font-bold text-xs shadow-lg shadow-[#3ecf8e]/30 transition-all duration-200"
+            className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#38bdf8] via-[#0284c7] to-blue-600 hover:brightness-110 text-black font-bold text-xs shadow-lg shadow-[#38bdf8]/30 transition-all duration-200 cursor-pointer"
           >
             <Check className="w-4 h-4" />
             <span>Grant Privilege & Execute</span>
