@@ -180,11 +180,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                   >
                     <option value="PostgreSQL">PostgreSQL (15/16)</option>
+                    <option value="MySQL">MySQL</option>
+                    <option value="Apache Kafka">Apache Kafka</option>
+                    <option value="OpenSearch">OpenSearch</option>
+                    <option value="ClickHouse">ClickHouse</option>
+                    <option value="Valkey">Valkey</option>
+                    <option value="Dragonfly">Dragonfly</option>
+                    <option value="Aiven for Metrics">Aiven for Metrics</option>
+                    <option value="Grafana">Grafana</option>
+                    <option value="MongoDB">MongoDB</option>
+                    <option value="Redis">Redis</option>
+                    <option value="SQLite">SQLite Cloud</option>
+                    <option value="Oracle">Oracle Database</option>
+                    <option value="SQL Server">Microsoft SQL Server</option>
+                    <option value="Snowflake">Snowflake</option>
+                    <option value="BigQuery">Google BigQuery</option>
+                    <option value="Cassandra">Apache Cassandra</option>
+                    <option value="Elasticsearch">Elasticsearch</option>
+                    <option value="MariaDB">MariaDB</option>
                     <option value="Supabase">Supabase PostgreSQL</option>
                     <option value="Neon">Neon Serverless</option>
-                    <option value="MySQL">MySQL 8.0</option>
                     <option value="CockroachDB">CockroachDB</option>
-                    <option value="SQLite">SQLite Cloud</option>
                   </select>
                 </div>
 
