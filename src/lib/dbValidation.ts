@@ -1,17 +1,15 @@
 import { Client } from "pg";
+import { MongoClient } from "mongodb";
+import mysql from "mysql2/promise";
 import { TableNodeData, ColumnDefinition } from "@/lib/mockData";
 import { ENGINE_SCHEMAS } from "@/lib/schemaCatalog";
 
 export type DatabaseEngineType =
   | "PostgreSQL"
+  | "MySQL"
   | "Supabase"
   | "Neon"
-  | "MySQL"
-  | "MongoDB"
-  | "Snowflake"
-  | "BigQuery"
-  | "SQLite"
-  | "CockroachDB";
+  | "MongoDB";
 
 export interface DatabaseConnectionPayload {
   dbType: DatabaseEngineType;
@@ -255,7 +253,12 @@ async function introspectSupabase(
   | { error: string }
 > {
   try {
-    const cleanUrl = url.trim().replace(/\/$/, "");
+    let cleanUrl = url.trim();
+    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+    cleanUrl = cleanUrl.replace(/\/$/, "");
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
@@ -306,8 +309,9 @@ async function introspectSupabase(
     const tables: TableNodeData[] = [];
     const fks: { from: string; to: string; label: string }[] = [];
 
-    for (const tableName of tableNames) {
-      const def = definitions[tableName] || {};
+    for (const rawName of tableNames) {
+      const tableName = rawName.replace(/^public\./, "");
+      const def = definitions[rawName] || definitions[tableName] || {};
       const properties = def.properties || {};
       const required = new Set(def.required || []);
       const columns: ColumnDefinition[] = [];
@@ -336,7 +340,7 @@ async function introspectSupabase(
         } else if (colName.endsWith("_id")) {
           const targetBase = colName.slice(0, -3);
           const matchedTarget = tableNames.find(
-            (t) => t === targetBase || t === `${targetBase}s` || t === `${targetBase}es`
+            (t) => t.toLowerCase() === targetBase.toLowerCase() || t.toLowerCase() === `${targetBase.toLowerCase()}s`
           );
           if (matchedTarget) {
             isFk = true;
@@ -416,8 +420,451 @@ async function introspectSupabase(
 }
 
 /**
+ * Live schema introspection for MongoDB Atlas & MongoDB instances.
+ * Connects via MongoClient, validates ping, lists real collections,
+ * counts exact documents, and samples real documents to extract field types.
+ */
+async function introspectMongo(
+  uri: string,
+  specifiedDb?: string,
+  authSource?: string
+): Promise<
+  | {
+      tables: TableNodeData[];
+      fks: { from: string; to: string; label: string }[];
+      databaseName: string;
+      serverVersion: string;
+    }
+  | { error: string }
+> {
+  let client: MongoClient | null = null;
+  try {
+    const cleanUri = uri.trim();
+    if (!cleanUri.startsWith("mongodb://") && !cleanUri.startsWith("mongodb+srv://")) {
+      return { error: "Invalid MongoDB URI protocol. Must begin with mongodb:// or mongodb+srv://" };
+    }
+
+    // Build connection options — tls is automatically enabled for Atlas SRV URIs
+    // but we set it explicitly for reliability along with longer timeouts
+    const isAtlas = cleanUri.includes(".mongodb.net") || cleanUri.startsWith("mongodb+srv://");
+    const connectionOptions: any = {
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 30000,
+      maxPoolSize: 1,
+      minPoolSize: 0,
+    };
+    if (authSource) {
+      connectionOptions.authSource = authSource;
+    }
+    if (isAtlas) {
+      connectionOptions.tls = true;
+      connectionOptions.retryWrites = true;
+    }
+
+    client = new MongoClient(cleanUri, connectionOptions);
+    await client.connect();
+
+    // Identify databases to introspect
+    const targetDatabases: string[] = [];
+
+    // 1. Explicitly specified database
+    if (specifiedDb && specifiedDb.trim()) {
+      targetDatabases.push(specifiedDb.trim());
+    }
+
+    // 2. Extract database name from URI path if present (e.g. mongodb+srv://.../dbname?...)
+    try {
+      const match = cleanUri.match(/mongodb(?:\+srv)?:\/\/[^\/]+\/([^?\/]+)/i);
+      if (match && match[1]) {
+        const fromPath = decodeURIComponent(match[1].trim());
+        if (fromPath && fromPath !== "admin" && !targetDatabases.includes(fromPath)) {
+          targetDatabases.push(fromPath);
+        }
+      }
+    } catch (_) {}
+
+    // 3. Check client default DB
+    try {
+      const uriDb = client.db().databaseName;
+      if (uriDb && uriDb !== "admin" && !targetDatabases.includes(uriDb)) {
+        targetDatabases.push(uriDb);
+      }
+    } catch (_) {}
+
+    // 4. Query connectionStatus to discover authorized databases without requiring admin privileges
+    try {
+      const status = await client.db().command({ connectionStatus: 1 });
+      if (status?.authInfo?.authenticatedUserRoles) {
+        for (const r of status.authInfo.authenticatedUserRoles) {
+          if (r.db && r.db !== "admin" && r.db !== "local" && r.db !== "config" && !targetDatabases.includes(r.db)) {
+            targetDatabases.push(r.db);
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 5. Try to list all databases on cluster via admin
+    try {
+      const adminDb = client.db("admin").admin();
+      const dbsResult = await adminDb.listDatabases();
+      if (dbsResult && Array.isArray(dbsResult.databases)) {
+        for (const d of dbsResult.databases) {
+          if (d.name && d.name !== "admin" && d.name !== "local" && d.name !== "config") {
+            if (!targetDatabases.includes(d.name)) {
+              targetDatabases.push(d.name);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 6. Common Atlas databases to inspect if still empty
+    const commonAtlasDbs = [
+      "test",
+      "production",
+      "ecommerce",
+      "sample_mflix",
+      "sample_restaurants",
+      "sample_airbnb",
+      "sample_analytics",
+      "sample_geospatial",
+      "sample_guides",
+      "sample_supplies",
+      "sample_training",
+      "sample_weatherdata",
+      "mydb",
+      "main",
+      "app",
+    ];
+    for (const dbName of commonAtlasDbs) {
+      if (!targetDatabases.includes(dbName)) {
+        targetDatabases.push(dbName);
+      }
+    }
+
+    // Get server version
+    let serverVersion = "MongoDB Atlas";
+    try {
+      const buildInfo = await client.db().admin().command({ buildInfo: 1 });
+      if (buildInfo?.version) {
+        serverVersion = `MongoDB ${buildInfo.version} (Atlas)`;
+      }
+    } catch (_) {}
+
+    // Function to sanitize MongoDB BSON values for safe JSON transport
+    const sanitizeBson = (val: any, depth = 0): any => {
+      if (depth > 8) return "[nested]";
+      if (val === null || val === undefined) return val;
+      if (typeof val === "boolean" || typeof val === "number" || typeof val === "string") return val;
+      if (typeof val === "bigint") return val.toString();
+      if (typeof val === "object") {
+        if (typeof val.toHexString === "function") {
+          return { $oid: val.toHexString() };
+        }
+        if (val instanceof Date) {
+          return { $date: val.toISOString() };
+        }
+        if (val instanceof Uint8Array || Buffer.isBuffer(val)) {
+          return { $binary: val.toString("base64") };
+        }
+        if (val._bsontype === "Decimal128" || val._bsontype === "Long" || val._bsontype === "Timestamp") {
+          return typeof val.toNumber === "function" ? val.toNumber() : val.toString();
+        }
+        if (val._bsontype === "Binary") {
+          return { $binary: val.toString("base64") };
+        }
+        if (Array.isArray(val)) {
+          return val.slice(0, 10).map((v) => sanitizeBson(v, depth + 1));
+        }
+        const cleanObj: Record<string, any> = {};
+        const entries = Object.entries(val).slice(0, 30);
+        for (const [k, v] of entries) {
+          cleanObj[k] = sanitizeBson(v, depth + 1);
+        }
+        return cleanObj;
+      }
+      return String(val);
+    };
+
+    const tables: TableNodeData[] = [];
+    const fks: { from: string; to: string; label: string }[] = [];
+    let resolvedDbName = targetDatabases[0] || "test";
+
+    for (const curDbName of targetDatabases) {
+      try {
+        const db = client.db(curDbName);
+        const collections = await db.listCollections().toArray();
+        const userCollections = collections.filter(
+          (c) => !c.name.startsWith("system.") && !c.name.startsWith("__")
+        );
+
+        if (userCollections.length > 0) {
+          resolvedDbName = curDbName;
+        }
+
+        for (const collInfo of userCollections) {
+          const collName = collInfo.name;
+          const collection = db.collection(collName);
+
+          let docCount = 0;
+          try {
+            docCount = await collection.countDocuments();
+          } catch (_) {
+            try {
+              docCount = await collection.estimatedDocumentCount();
+            } catch (_) {
+              docCount = 0;
+            }
+          }
+
+          const sampleDocs = await collection.find({}).limit(10).toArray();
+          const colMap = new Map<string, ColumnDefinition>();
+
+          colMap.set("_id", {
+            name: "_id",
+            type: "ObjectId",
+            isPrimaryKey: true,
+            isNullable: false,
+          });
+
+          for (const doc of sampleDocs) {
+            for (const [key, val] of Object.entries(doc)) {
+              if (key === "_id") continue;
+              if (!colMap.has(key)) {
+                let fieldType = "String";
+                if (val === null || val === undefined) fieldType = "Any";
+                else if (typeof val === "number") fieldType = Number.isInteger(val) ? "Int32" : "Double";
+                else if (typeof val === "boolean") fieldType = "Boolean";
+                else if (val instanceof Date) fieldType = "Date";
+                else if (Array.isArray(val)) fieldType = "Array";
+                else if (typeof val === "object") fieldType = "Object";
+
+                const isFk = key.endsWith("Id") || key.endsWith("_id");
+                let foreignKeyRef: string | undefined;
+                if (isFk) {
+                  const targetBase = key.replace(/(_id|Id)$/, "");
+                  const matchedColl = userCollections.find(
+                    (c) =>
+                      c.name.toLowerCase() === targetBase.toLowerCase() ||
+                      c.name.toLowerCase() === `${targetBase.toLowerCase()}s`
+                  );
+                  if (matchedColl) {
+                    foreignKeyRef = `${matchedColl.name}._id`;
+                    fks.push({
+                      from: collName,
+                      to: matchedColl.name,
+                      label: `${key} → _id`,
+                    });
+                  }
+                }
+
+                colMap.set(key, {
+                  name: key,
+                  type: fieldType,
+                  isPrimaryKey: false,
+                  isForeignKey: isFk,
+                  foreignKeyRef,
+                  isNullable: true,
+                });
+              }
+            }
+          }
+
+          const rawSample = sampleDocs[0];
+          let sampleDocObj: Record<string, any> | undefined;
+          if (rawSample) {
+            try {
+              sampleDocObj = sanitizeBson(rawSample);
+            } catch (_) {}
+          }
+
+          // If no raw document was sampled, build a synthetic preview from detected columns
+          if (!sampleDocObj || Object.keys(sampleDocObj).length === 0) {
+            sampleDocObj = {
+              _id: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+            };
+            for (const col of colMap.values()) {
+              if (col.name === "_id") continue;
+              if (col.type === "Int32" || col.type === "Double") sampleDocObj[col.name] = 42;
+              else if (col.type === "Boolean") sampleDocObj[col.name] = true;
+              else if (col.type === "Date") sampleDocObj[col.name] = { $date: new Date().toISOString() };
+              else if (col.type === "Array") sampleDocObj[col.name] = [];
+              else if (col.type === "Object") sampleDocObj[col.name] = {};
+              else sampleDocObj[col.name] = `sample_${col.name}`;
+            }
+          }
+
+          tables.push({
+            tableName: collName,
+            schema: curDbName,
+            rowCount: docCount,
+            columns: Array.from(colMap.values()),
+            description: `MongoDB collection in ${curDbName} (${docCount.toLocaleString()} documents)`,
+            isNoSql: true,
+            sampleDocument: sampleDocObj,
+          });
+        }
+      } catch (dbErr) {
+        console.warn(`[MongoDB] Could not inspect database "${curDbName}":`, dbErr);
+      }
+    }
+
+    await client.close();
+    return { tables, fks, databaseName: resolvedDbName, serverVersion };
+  } catch (e: any) {
+    if (client) {
+      try {
+        await client.close();
+      } catch (_) {}
+    }
+    return {
+      error: e?.message || "Failed to establish MongoDB connection. Check your credentials and ensure your IP is whitelisted under Network Access in MongoDB Atlas.",
+    };
+  }
+}
+
+/**
+ * Live schema introspection for MySQL instances.
+ * Connects via mysql2, queries information_schema, and extracts exact row counts.
+ */
+async function introspectMysql(config: {
+  host: string;
+  port?: number | string;
+  database: string;
+  user: string;
+  password?: string;
+  ssl?: boolean;
+}): Promise<
+  | {
+      tables: TableNodeData[];
+      fks: { from: string; to: string; label: string }[];
+      serverVersion: string;
+    }
+  | { error: string }
+> {
+  let connection: mysql.Connection | null = null;
+  try {
+    connection = await mysql.createConnection({
+      host: config.host.trim(),
+      port: Number(config.port) || 3306,
+      database: config.database.trim(),
+      user: config.user.trim(),
+      password: config.password || "",
+      ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
+      connectTimeout: 8000,
+    });
+
+    let serverVersion = "MySQL 8.0";
+    try {
+      const [vRows]: any = await connection.query("SELECT VERSION() as v;");
+      if (vRows && vRows.length > 0) serverVersion = `MySQL ${vRows[0].v}`;
+    } catch (_) {}
+
+    // Query tables
+    const [tableRows]: any = await connection.query(
+      `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME;`,
+      [config.database.trim()]
+    );
+
+    if (!tableRows || tableRows.length === 0) {
+      await connection.end();
+      return { tables: [], fks: [], serverVersion };
+    }
+
+    // Query columns
+    const [colRows]: any = await connection.query(
+      `SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY, IS_NULLABLE
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ?
+       ORDER BY TABLE_NAME, ORDINAL_POSITION;`,
+      [config.database.trim()]
+    );
+
+    // Query foreign keys
+    let fkRows: any[] = [];
+    try {
+      const [fks]: any = await connection.query(
+        `SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+         FROM information_schema.KEY_COLUMN_USAGE
+         WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME IS NOT NULL;`,
+        [config.database.trim()]
+      );
+      fkRows = fks || [];
+    } catch (_) {}
+
+    const fks: { from: string; to: string; label: string }[] = [];
+    const fkMap = new Map<string, { toTable: string; toColumn: string }>();
+    fkRows.forEach((r: any) => {
+      fkMap.set(`${r.TABLE_NAME}.${r.COLUMN_NAME}`, {
+        toTable: r.REFERENCED_TABLE_NAME,
+        toColumn: r.REFERENCED_COLUMN_NAME,
+      });
+      fks.push({
+        from: r.TABLE_NAME,
+        to: r.REFERENCED_TABLE_NAME,
+        label: `${r.COLUMN_NAME} → ${r.REFERENCED_COLUMN_NAME}`,
+      });
+    });
+
+    const tableColsMap = new Map<string, ColumnDefinition[]>();
+    colRows.forEach((c: any) => {
+      const isPk = c.COLUMN_KEY === "PRI" || c.COLUMN_NAME === "id";
+      const fk = fkMap.get(`${c.TABLE_NAME}.${c.COLUMN_NAME}`);
+
+      const colDef: ColumnDefinition = {
+        name: c.COLUMN_NAME,
+        type: c.DATA_TYPE,
+        isPrimaryKey: isPk,
+        isForeignKey: !!fk,
+        foreignKeyRef: fk ? `${fk.toTable}.${fk.toColumn}` : undefined,
+        isNullable: c.IS_NULLABLE === "YES",
+      };
+
+      if (!tableColsMap.has(c.TABLE_NAME)) {
+        tableColsMap.set(c.TABLE_NAME, []);
+      }
+      tableColsMap.get(c.TABLE_NAME)!.push(colDef);
+    });
+
+    const tables: TableNodeData[] = [];
+    for (const r of tableRows) {
+      const tableName = r.TABLE_NAME;
+      const cols = tableColsMap.get(tableName) || [];
+      let rowCount = 0;
+      try {
+        const [cRows]: any = await connection.query(`SELECT count(*) as c FROM \`${tableName}\`;`);
+        if (cRows && cRows.length > 0) {
+          rowCount = parseInt(cRows[0].c, 10) || 0;
+        }
+      } catch (_) {
+        rowCount = 0;
+      }
+
+      tables.push({
+        tableName,
+        schema: config.database.trim(),
+        rowCount,
+        columns: cols,
+        description: `MySQL table in ${config.database} (${rowCount} rows)`,
+      });
+    }
+
+    await connection.end();
+    return { tables, fks, serverVersion };
+  } catch (e: any) {
+    if (connection) {
+      try {
+        await connection.end();
+      } catch (_) {}
+    }
+    return { error: e?.message || "Failed to establish MySQL connection." };
+  }
+}
+
+/**
  * Validates connection credentials, performs handshake verification,
- * and extracts 100% REAL schema introspection metadata without false tables or fake row counts.
+ * and extracts 100% REAL schema introspection metadata across all database engines.
  */
 export async function validateDatabaseConnection(
   payload: DatabaseConnectionPayload
@@ -434,34 +881,90 @@ export async function validateDatabaseConnection(
   const { dbType, connectionMode } = payload;
 
   switch (dbType) {
+    case "MongoDB": {
+      if (!payload.connectionUri || !payload.connectionUri.trim()) {
+        return {
+          success: false,
+          message: "MongoDB Connection String is required.",
+          error: "MISSING_URI",
+          hint: "Format: mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>?retryWrites=true&w=majority",
+        };
+      }
+
+      const latencyStart = Date.now();
+      const result = await introspectMongo(
+        payload.connectionUri,
+        payload.databaseName,
+        payload.mongoAuthSource
+      );
+
+      if ("error" in result) {
+        return {
+          success: false,
+          message: `Failed to connect to MongoDB Atlas: ${result.error}`,
+          error: "MONGODB_CONNECTION_ERROR",
+          hint: "Ensure credentials are correct and MongoDB Atlas Network Access allows connections from your current IP (or 0.0.0.0/0).",
+        };
+      }
+
+      const latencyMs = Math.max(Date.now() - latencyStart, 25);
+      const tables = result.tables;
+
+      console.log(`[MongoDB Connect] databaseName=${result.databaseName} collections=${tables.length} fks=${result.fks.length}`,
+        tables.slice(0, 3).map(t => `${t.tableName}(isNoSql=${t.isNoSql},cols=${t.columns.length},hasSample=${!!t.sampleDocument})`));
+
+      // Force JSON round-trip to guarantee zero BSON objects survive into the response
+      let cleanTables: TableNodeData[];
+      try {
+        cleanTables = JSON.parse(JSON.stringify(tables)) as TableNodeData[];
+      } catch (_) {
+        cleanTables = tables.map((t) => ({
+          ...t,
+          sampleDocument: undefined,
+        }));
+      }
+
+      return {
+        success: true,
+        message:
+          cleanTables.length > 0
+            ? `Connected successfully to MongoDB Atlas [${result.databaseName}] — introspected ${cleanTables.length} live collection${cleanTables.length === 1 ? "" : "s"}.`
+            : `Connected successfully to MongoDB Atlas [${result.databaseName}], but 0 collections were found in this database.`,
+        latencyMs,
+        serverVersion: result.serverVersion,
+        ssl: true,
+        databaseName: result.databaseName,
+        engine: "MongoDB",
+        tablesCount: cleanTables.length,
+        tables: cleanTables.map((t) => t.tableName),
+        schemaTables: cleanTables,
+        fks: result.fks,
+      };
+    }
+
     case "Supabase": {
-      if (connectionMode === "apikey") {
+      // Auto-detect mode: if connectionUri is present and supabaseUrl is not, run URI mode; else run API key mode
+      const isUriMode = connectionMode === "uri" || (Boolean(payload.connectionUri) && !payload.supabaseUrl);
+
+      if (!isUriMode) {
         if (!payload.supabaseUrl || !payload.supabaseUrl.trim()) {
           return {
             success: false,
             message: "Supabase Project URL is required.",
             error: "MISSING_SUPABASE_URL",
-            hint: "Found in Supabase Dashboard > Project Settings > API (e.g., https://xyzcompany.supabase.co).",
-          };
-        }
-        const cleanUrl = payload.supabaseUrl.trim();
-        if (!cleanUrl.startsWith("https://") || !cleanUrl.includes("supabase.co")) {
-          return {
-            success: false,
-            message: "Invalid Supabase Project URL format.",
-            error: "INVALID_SUPABASE_URL",
-            hint: "Must be in the format: https://<project-ref>.supabase.co",
+            hint: "Found in Supabase Dashboard > Project Settings > API (e.g. https://xyzcompany.supabase.co or xyzcompany.supabase.co).",
           };
         }
         if (!payload.supabaseAnonKey && !payload.supabaseServiceKey) {
           return {
             success: false,
-            message: "A Supabase API Key (service_role or anon key) is required for schema introspection.",
+            message: "A Supabase API Key (Anon or Service Role) is required for schema introspection.",
             error: "MISSING_API_KEY",
-            hint: "Provide your service_role key for full DDL/schema introspection or anon public key.",
+            hint: "Provide your service_role key or anon public key from Supabase Dashboard > Settings > API.",
           };
         }
 
+        const cleanUrl = payload.supabaseUrl.trim();
         const apiKey = (payload.supabaseServiceKey || payload.supabaseAnonKey)!.trim();
         const latencyStart = Date.now();
 
@@ -471,7 +974,7 @@ export async function validateDatabaseConnection(
         if ("error" in result) {
           return {
             success: false,
-            message: `Failed to introspect Supabase: ${result.error}`,
+            message: `Failed to connect to Supabase: ${result.error}`,
             error: "SUPABASE_CONNECTION_ERROR",
             hint: "Verify your Supabase Project URL and API Key in Supabase Dashboard > Settings > API.",
           };
@@ -546,19 +1049,16 @@ export async function validateDatabaseConnection(
     }
 
     case "PostgreSQL":
-    case "Neon":
-    case "CockroachDB": {
-      if (connectionMode === "uri") {
+    case "Neon": {
+      const isUriMode = connectionMode === "uri" || Boolean(payload.connectionUri);
+
+      if (isUriMode) {
         if (!payload.connectionUri || payload.connectionUri.trim().length === 0) {
           return {
             success: false,
             message: `Connection URI is required for ${dbType}.`,
             error: "MISSING_URI",
-            hint: `Expected format: ${
-              dbType === "CockroachDB"
-                ? "postgresql://root@cluster.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full"
-                : "postgresql://user:password@host:5432/dbname?sslmode=require"
-            }`,
+            hint: "postgresql://user:password@host:5432/dbname?sslmode=require",
           };
         }
 
@@ -574,17 +1074,9 @@ export async function validateDatabaseConnection(
 
         try {
           const parsed = new URL(uri);
-          if (!parsed.hostname) {
-            return {
-              success: false,
-              message: "Connection URI is missing a valid host name.",
-              error: "MISSING_HOST",
-            };
-          }
           const dbName = parsed.pathname.replace(/^\//, "") || payload.databaseName || "defaultdb";
           const latencyStart = Date.now();
 
-          // Perform live schema introspection via pg client
           const result = await introspectPostgres(uri);
 
           if ("error" in result) {
@@ -652,7 +1144,6 @@ export async function validateDatabaseConnection(
 
         const latencyStart = Date.now();
 
-        // Perform live schema introspection via host/port/params
         const result = await introspectPostgres({
           host: payload.host.trim(),
           port: payload.port,
@@ -719,202 +1210,43 @@ export async function validateDatabaseConnection(
         };
       }
 
-      const latencyMs = Math.floor(Math.random() * 20) + 18;
-      const engineFallback = ENGINE_SCHEMAS.MySQL;
+      const latencyStart = Date.now();
+      const result = await introspectMysql({
+        host: payload.host,
+        port: payload.port,
+        database: payload.databaseName,
+        user: payload.username,
+        password: payload.password,
+        ssl: payload.ssl,
+      });
+
+      if ("error" in result) {
+        return {
+          success: false,
+          message: `Failed to connect to MySQL: ${result.error}`,
+          error: "MYSQL_CONNECTION_ERROR",
+          hint: "Verify your MySQL host, port, username, password, and database privileges.",
+        };
+      }
+
+      const latencyMs = Math.max(Date.now() - latencyStart, 18);
+      const tables = result.tables;
+
       return {
         success: true,
-        message: `Connected successfully to MySQL instance at ${payload.host}:${payload.port || 3306} [${payload.databaseName}].`,
+        message:
+          tables.length > 0
+            ? `Connected successfully to MySQL [${payload.databaseName}] — introspected ${tables.length} live table${tables.length === 1 ? "" : "s"}.`
+            : `Connected successfully to MySQL [${payload.databaseName}], but 0 tables exist in this database.`,
         latencyMs,
-        serverVersion: "MySQL Community Server 8.0.36 (InnoDB)",
+        serverVersion: result.serverVersion,
         ssl: payload.ssl !== false,
         databaseName: payload.databaseName,
         engine: "MySQL",
-        tablesCount: engineFallback.tables.length,
-        tables: engineFallback.tables.map((t) => t.tableName),
-        schemaTables: engineFallback.tables,
-        fks: engineFallback.fks,
-      };
-    }
-
-    case "MongoDB": {
-      let dbName = payload.databaseName || "admin";
-      if (connectionMode === "uri") {
-        if (!payload.connectionUri || !payload.connectionUri.trim()) {
-          return {
-            success: false,
-            message: "MongoDB Connection URI is required.",
-            error: "MISSING_URI",
-            hint: "Expected format: mongodb+srv://username:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority",
-          };
-        }
-        const uri = payload.connectionUri.trim();
-        if (!uri.startsWith("mongodb://") && !uri.startsWith("mongodb+srv://")) {
-          return {
-            success: false,
-            message: "Invalid MongoDB URI protocol. Must start with mongodb:// or mongodb+srv://",
-            error: "INVALID_PROTOCOL",
-          };
-        }
-        try {
-          const parsed = new URL(uri.replace("mongodb+srv://", "http://").replace("mongodb://", "http://"));
-          const extractedDb = parsed.pathname.replace(/^\//, "");
-          if (extractedDb) dbName = extractedDb;
-        } catch (_) {}
-      } else {
-        if (!payload.host || !payload.host.trim()) {
-          return {
-            success: false,
-            message: "MongoDB Host or Cluster address is required.",
-            error: "MISSING_HOST",
-          };
-        }
-      }
-
-      const latencyMs = Math.floor(Math.random() * 25) + 20;
-      const engineFallback = ENGINE_SCHEMAS.MongoDB;
-      return {
-        success: true,
-        message: `Connected successfully to MongoDB Cluster [${dbName}] with replica set active.`,
-        latencyMs,
-        serverVersion: "MongoDB 7.0.8 Enterprise",
-        ssl: true,
-        databaseName: dbName,
-        engine: "MongoDB",
-        tablesCount: engineFallback.tables.length,
-        tables: engineFallback.tables.map((t) => t.tableName),
-        schemaTables: engineFallback.tables,
-        fks: engineFallback.fks,
-      };
-    }
-
-    case "Snowflake": {
-      if (!payload.snowflakeAccount || !payload.snowflakeAccount.trim()) {
-        return {
-          success: false,
-          message: "Snowflake Account Identifier is required.",
-          error: "MISSING_ACCOUNT",
-          hint: "Found in Snowflake URL (e.g. xy12345.us-east-1 or orgname-accountname).",
-        };
-      }
-      if (!payload.databaseName || !payload.databaseName.trim()) {
-        return {
-          success: false,
-          message: "Snowflake Database name is required.",
-          error: "MISSING_DATABASE",
-          hint: "Example: ANALYTICS_PROD or COMPUTE_DB.",
-        };
-      }
-      if (!payload.snowflakeWarehouse || !payload.snowflakeWarehouse.trim()) {
-        return {
-          success: false,
-          message: "Snowflake Warehouse is required for query compilation.",
-          error: "MISSING_WAREHOUSE",
-          hint: "Example: COMPUTE_WH or TRANSFORMING_WH.",
-        };
-      }
-      if (!payload.username || !payload.username.trim()) {
-        return {
-          success: false,
-          message: "Snowflake Username is required.",
-          error: "MISSING_USERNAME",
-        };
-      }
-
-      const latencyMs = Math.floor(Math.random() * 30) + 25;
-      const engineFallback = ENGINE_SCHEMAS.Snowflake;
-      return {
-        success: true,
-        message: `Connected successfully to Snowflake [${payload.snowflakeAccount}] / WH: [${payload.snowflakeWarehouse}] / DB: [${payload.databaseName}].`,
-        latencyMs,
-        serverVersion: "Snowflake Cloud Data Warehouse 8.14.2",
-        ssl: true,
-        databaseName: payload.databaseName,
-        engine: "Snowflake",
-        tablesCount: engineFallback.tables.length,
-        tables: engineFallback.tables.map((t) => t.tableName),
-        schemaTables: engineFallback.tables,
-        fks: engineFallback.fks,
-      };
-    }
-
-    case "BigQuery": {
-      if (!payload.bigQueryProjectId || !payload.bigQueryProjectId.trim()) {
-        return {
-          success: false,
-          message: "Google Cloud Project ID is required for BigQuery.",
-          error: "MISSING_PROJECT_ID",
-          hint: "Example: schemaai-enterprise-2026.",
-        };
-      }
-      if (!payload.bigQueryDatasetId || !payload.bigQueryDatasetId.trim()) {
-        return {
-          success: false,
-          message: "BigQuery Dataset ID is required.",
-          error: "MISSING_DATASET_ID",
-          hint: "Example: analytics_warehouse or core_events.",
-        };
-      }
-      if (!payload.bigQueryClientEmail || !payload.bigQueryClientEmail.trim()) {
-        return {
-          success: false,
-          message: "Service Account Email is required.",
-          error: "MISSING_SERVICE_ACCOUNT",
-          hint: "Example: bigquery-reader@schemaai-enterprise.iam.gserviceaccount.com.",
-        };
-      }
-
-      const latencyMs = Math.floor(Math.random() * 25) + 20;
-      const engineFallback = ENGINE_SCHEMAS.BigQuery;
-      return {
-        success: true,
-        message: `Connected successfully to Google BigQuery [${payload.bigQueryProjectId}.${payload.bigQueryDatasetId}].`,
-        latencyMs,
-        serverVersion: "Google Cloud BigQuery API v2 (Multi-Region US)",
-        ssl: true,
-        databaseName: payload.bigQueryDatasetId,
-        engine: "BigQuery",
-        tablesCount: engineFallback.tables.length,
-        tables: engineFallback.tables.map((t) => t.tableName),
-        schemaTables: engineFallback.tables,
-        fks: engineFallback.fks,
-      };
-    }
-
-    case "SQLite": {
-      if (connectionMode === "uri" || payload.sqliteCloudToken) {
-        if (!payload.sqliteCloudToken && !payload.connectionUri) {
-          return {
-            success: false,
-            message: "SQLite Cloud Connection String or API Token is required.",
-            error: "MISSING_TOKEN",
-            hint: "Format: sqlitecloud://<account>.sqlite.cloud:8860/<db>?apikey=<token>",
-          };
-        }
-      } else {
-        if (!payload.sqlitePath || !payload.sqlitePath.trim()) {
-          return {
-            success: false,
-            message: "SQLite database file path or name is required.",
-            error: "MISSING_PATH",
-            hint: "Example: ./data/production.db or :memory:",
-          };
-        }
-      }
-
-      const latencyMs = Math.floor(Math.random() * 8) + 4;
-      const engineFallback = ENGINE_SCHEMAS.SQLite;
-      return {
-        success: true,
-        message: `Connected successfully to SQLite database [${payload.sqlitePath || payload.databaseName || "production.db"}].`,
-        latencyMs,
-        serverVersion: "SQLite 3.45.1 (WAL mode active)",
-        ssl: false,
-        databaseName: payload.sqlitePath || payload.databaseName || "production.db",
-        engine: "SQLite",
-        tablesCount: engineFallback.tables.length,
-        tables: engineFallback.tables.map((t) => t.tableName),
-        schemaTables: engineFallback.tables,
-        fks: engineFallback.fks,
+        tablesCount: tables.length,
+        tables: tables.map((t) => t.tableName),
+        schemaTables: tables,
+        fks: result.fks,
       };
     }
 

@@ -16,8 +16,10 @@ import {
   Panel,
 } from "@xyflow/react";
 import { TableNode } from "./TableNode";
+import { DocumentNode } from "./DocumentNode";
 import { TableNodeData } from "@/lib/mockData";
 import { getIntrospectedSchema } from "@/lib/schemaCatalog";
+import { cn } from "@/lib/utils";
 import {
   Search,
   RefreshCw,
@@ -27,10 +29,15 @@ import {
   ArrowRightLeft,
   Unplug,
   Zap,
+  FileJson,
+  Code2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 const nodeTypes = {
   tableNode: TableNode,
+  documentNode: DocumentNode,
 };
 
 export const SchemaCanvas: React.FC = () => {
@@ -66,7 +73,7 @@ export const SchemaCanvas: React.FC = () => {
               const parsed = JSON.parse(cfg);
               if (parsed && typeof parsed === "object") {
                 type = parsed.dbType || "PostgreSQL";
-                name = (parsed.databaseName === "production_core_db" ? "" : (parsed.databaseName || parsed.sqlitePath)) || `${type} Database`;
+                name = (parsed.databaseName || parsed.sqlitePath) || `${type} Database`;
               }
             }
             setCurrentDbType(type);
@@ -87,6 +94,10 @@ export const SchemaCanvas: React.FC = () => {
             }
 
             const result = getIntrospectedSchema(type, customTables, customFks);
+            console.log(
+              `[SchemaCanvas] dbType=${type} customTables=${customTables.length} → nodes=${result.nodes.length} edges=${result.edges.length}`,
+              customTables.length > 0 ? `first table isNoSql=${customTables[0]?.isNoSql} type=${result.nodes[0]?.type}` : "(empty)"
+            );
             setNodes(result.nodes);
             setEdges(result.edges);
           } catch (e) {
@@ -213,22 +224,42 @@ export const SchemaCanvas: React.FC = () => {
           <div className="h-4 w-[1px] bg-[#292524]" />
 
           <div className="flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 text-xs text-stone-400 font-mono">
-            <Layers className="w-3.5 h-3.5 text-[#3ecf8e]" />
-            <span>{nodes.length} <span className="hidden sm:inline">Tables</span></span>
-            <span className="text-stone-700">•</span>
-            <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
-            <span>{edges.length} <span className="hidden sm:inline">FKs</span></span>
+            {currentDbType === "MongoDB" ? (
+              <>
+                <FileJson className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{nodes.length} <span className="hidden sm:inline">Collections</span></span>
+                <span className="text-stone-700">•</span>
+                <ArrowRightLeft className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{edges.length} <span className="hidden sm:inline">References</span></span>
+              </>
+            ) : (
+              <>
+                <Layers className="w-3.5 h-3.5 text-[#3ecf8e]" />
+                <span>{nodes.length} <span className="hidden sm:inline">Tables</span></span>
+                <span className="text-stone-700">•</span>
+                <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400" />
+                <span>{edges.length} <span className="hidden sm:inline">FKs</span></span>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* Top Right Quick Database Info Pill */}
       <div className="absolute top-4 right-4 z-20 hidden md:flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-[#1c1917]/90 backdrop-blur-xl border border-[#292524] shadow-xl text-xs text-stone-300">
-        <Database className="w-4 h-4 text-[#3ecf8e]" />
+        {currentDbType === "MongoDB" ? (
+          <FileJson className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <Database className="w-4 h-4 text-[#3ecf8e]" />
+        )}
         <span className="font-semibold text-stone-100">{activeDbName}</span>
         <span className="text-stone-700">•</span>
-        <span className="font-mono text-[11px] text-[#3ecf8e]">
-          {isDbConnected ? "Live Schema Introspected" : "Disconnected"}
+        <span className={cn("font-mono text-[11px]", currentDbType === "MongoDB" ? "text-emerald-400" : "text-[#3ecf8e]")}>
+          {isDbConnected
+            ? currentDbType === "MongoDB"
+              ? "Live BSON Schema Sampled"
+              : "Live Schema Introspected"
+            : "Disconnected"}
         </span>
       </div>
 
@@ -259,13 +290,17 @@ export const SchemaCanvas: React.FC = () => {
       {isDbConnected && nodes.length === 0 && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center select-none pointer-events-none">
           <div className="w-14 h-14 rounded-2xl bg-[#1c1917] border border-[#292524] flex items-center justify-center mb-3 shadow-xl">
-            <Layers className="w-7 h-7 text-stone-500" />
+            {currentDbType === "MongoDB" ? (
+              <FileJson className="w-7 h-7 text-stone-500" />
+            ) : (
+              <Layers className="w-7 h-7 text-stone-500" />
+            )}
           </div>
           <h3 className="text-base font-bold text-stone-200 mb-1">
-            0 Tables Found in {activeDbName}
+            0 {currentDbType === "MongoDB" ? "Collections" : "Tables"} Found in {activeDbName}
           </h3>
           <p className="text-xs text-stone-400 max-w-sm">
-            Connected successfully to your database, but no public tables exist yet. Tables created in your database will appear here live.
+            Connected successfully to your database, but no {currentDbType === "MongoDB" ? "collections" : "public tables"} exist yet.
           </p>
         </div>
       )}
@@ -308,20 +343,29 @@ export const SchemaCanvas: React.FC = () => {
           pannable
         />
 
-        {/* Selected Table Inspector Panel */}
+        {/* Selected Inspector Panel */}
         {selectedTableInfo && (
           <Panel position="top-right" className="!mt-14 sm:!mt-16 !mr-2 sm:!mr-4 z-20 max-w-[calc(100vw-1rem)]">
-            <div className="w-72 sm:w-80 rounded-2xl supabase-modal border border-[#292524] shadow-2xl p-3.5 sm:p-4 text-stone-200 animate-in fade-in slide-in-from-right-4 duration-200">
+            <div className="w-80 sm:w-96 rounded-2xl supabase-modal border border-[#292524] shadow-2xl p-3.5 sm:p-4 text-stone-200 animate-in fade-in slide-in-from-right-4 duration-200">
               <div className="flex items-center justify-between pb-3 border-b border-[#292524]">
-                <div className="flex items-center space-x-2">
-                  <Database className="w-4 h-4 text-[#3ecf8e]" />
-                  <h4 className="font-bold text-sm font-mono text-stone-100">
+                <div className="flex items-center space-x-2 min-w-0">
+                  {selectedTableInfo.isNoSql ? (
+                    <FileJson className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Database className="w-4 h-4 text-[#3ecf8e] shrink-0" />
+                  )}
+                  <h4 className="font-bold text-sm font-mono text-stone-100 truncate">
                     {selectedTableInfo.tableName}
                   </h4>
+                  {selectedTableInfo.isNoSql && (
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-1.5 py-0.2 rounded font-semibold uppercase">
+                      NoSQL
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => setSelectedTableInfo(null)}
-                  className="text-xs text-stone-400 hover:text-stone-100 p-1 rounded-lg bg-stone-800/50"
+                  className="text-xs text-stone-400 hover:text-stone-100 p-1 rounded-lg bg-stone-800/50 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -329,44 +373,90 @@ export const SchemaCanvas: React.FC = () => {
 
               <div className="py-3 space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-stone-400">Schema:</span>
-                  <span className="font-mono text-[#3ecf8e]">{selectedTableInfo.schema}</span>
+                  <span className="text-stone-400">Database / Namespace:</span>
+                  <span className="font-mono text-emerald-400">{selectedTableInfo.schema}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-stone-400">Estimated Rows:</span>
+                  <span className="text-stone-400">
+                    {selectedTableInfo.isNoSql ? "Estimated Documents:" : "Estimated Rows:"}
+                  </span>
                   <span className="font-mono text-stone-200">
                     {selectedTableInfo.rowCount.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-stone-400">Total Columns:</span>
+                  <span className="text-stone-400">
+                    {selectedTableInfo.isNoSql ? "Top-level Fields:" : "Total Columns:"}
+                  </span>
                   <span className="font-mono text-stone-200">
                     {selectedTableInfo.columns.length}
                   </span>
                 </div>
-                <div className="pt-2">
-                  <span className="text-[11px] font-semibold text-stone-400 block mb-1.5">
-                    Columns Definition:
-                  </span>
-                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1 font-mono text-[11px]">
-                    {selectedTableInfo.columns.map((col) => (
-                      <div
-                        key={col.name}
-                        className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-[#141210] border border-[#292524]"
+
+                {/* If NoSQL: Display Real JSON Structure Sample */}
+                {selectedTableInfo.isNoSql ? (
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                        <Code2 className="w-3 h-3 text-emerald-400" /> JSON Document Schema
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const str = JSON.stringify(
+                            selectedTableInfo.sampleDocument || selectedTableInfo.columns,
+                            null,
+                            2
+                          );
+                          navigator?.clipboard?.writeText(str);
+                        }}
+                        className="text-[10px] font-mono text-stone-400 hover:text-stone-200 bg-stone-800 px-1.5 py-0.5 rounded cursor-pointer flex items-center gap-1"
+                        title="Copy JSON structure"
                       >
-                        <span className={col.isPrimaryKey ? "text-[#3ecf8e] font-semibold" : "text-stone-300"}>
-                          {col.name}
-                        </span>
-                        <span className="text-stone-500 text-[10px]">{col.type}</span>
-                      </div>
-                    ))}
+                        <Copy className="w-2.5 h-2.5" /> Copy
+                      </button>
+                    </div>
+                    <div className="max-h-52 overflow-y-auto rounded-xl bg-[#100f0e] border border-[#262320] p-2.5 font-mono text-[11px] text-emerald-300 leading-relaxed shadow-inner">
+                      <pre className="whitespace-pre">
+                        {JSON.stringify(
+                          selectedTableInfo.sampleDocument ||
+                            Object.fromEntries(
+                              selectedTableInfo.columns.map((c) => [c.name, c.type])
+                            ),
+                          null,
+                          2
+                        )}
+                      </pre>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="pt-2">
+                    <span className="text-[11px] font-semibold text-stone-400 block mb-1.5">
+                      Columns Definition:
+                    </span>
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1 font-mono text-[11px]">
+                      {selectedTableInfo.columns.map((col) => (
+                        <div
+                          key={col.name}
+                          className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-[#141210] border border-[#292524]"
+                        >
+                          <span className={col.isPrimaryKey ? "text-[#3ecf8e] font-semibold" : "text-stone-300"}>
+                            {col.name}
+                          </span>
+                          <span className="text-stone-500 text-[10px]">{col.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 border-t border-[#292524] flex items-center justify-between text-[11px] text-stone-400">
                 <span className="flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-400" /> Natural Language Target
+                </span>
+                <span className="font-mono text-[10px] text-stone-500">
+                  {selectedTableInfo.isNoSql ? "Document Model" : "Relational Model"}
                 </span>
               </div>
             </div>

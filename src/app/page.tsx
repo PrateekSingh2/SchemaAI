@@ -49,6 +49,14 @@ export default function QueryStudioPage() {
   // Database Connection State (Must be configured before executing prompts)
   const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
 
+  // Database config
+  const [dbConfig, setDbConfig] = useState({
+    dbType: "",
+    databaseName: "",
+    enableQueryGuard: true,
+    llmProvider: "openai",
+  });
+
   useEffect(() => {
     const checkDbStatus = () => {
       if (typeof window !== "undefined") {
@@ -59,10 +67,7 @@ export default function QueryStudioPage() {
           if (cfg) {
             const parsed = JSON.parse(cfg);
             if (parsed && typeof parsed === "object") {
-              const cleanedDbName =
-                parsed.databaseName === "production_core_db"
-                  ? ""
-                  : parsed.databaseName || parsed.sqlitePath || "";
+              const cleanedDbName = parsed.databaseName || parsed.sqlitePath || "";
               setDbConfig((prev) => ({
                 ...prev,
                 dbType: parsed.dbType || prev.dbType,
@@ -76,7 +81,11 @@ export default function QueryStudioPage() {
     checkDbStatus();
 
     window.addEventListener("schemaai_db_changed", checkDbStatus);
-    return () => window.removeEventListener("schemaai_db_changed", checkDbStatus);
+    window.addEventListener("storage", checkDbStatus);
+    return () => {
+      window.removeEventListener("schemaai_db_changed", checkDbStatus);
+      window.removeEventListener("storage", checkDbStatus);
+    };
   }, []);
 
   // Redirect unauthenticated visitors to /login immediately
@@ -105,14 +114,6 @@ export default function QueryStudioPage() {
     columns: [],
     records: [],
     executionTime: 30,
-  });
-
-  // Database config
-  const [dbConfig, setDbConfig] = useState({
-    dbType: "PostgreSQL",
-    databaseName: "",
-    enableQueryGuard: true,
-    llmProvider: "openai",
   });
 
   // Query Studio state with safe persistent cache so prompt is never lost
@@ -536,8 +537,8 @@ export default function QueryStudioPage() {
     <div className="h-screen-dvh w-screen overflow-hidden bg-[#0e0e11] text-[#f4f4f5] flex flex-col font-sans select-none antialiased">
       {/* Top Navbar */}
       <Topbar
-        dbName={isDbConnected ? dbConfig.databaseName : "Not Connected"}
-        dbType={isDbConnected ? dbConfig.dbType : "Database"}
+        dbName={isDbConnected ? dbConfig.databaseName : undefined}
+        dbType={isDbConnected ? dbConfig.dbType : undefined}
         isConnected={isDbConnected}
         onDisconnect={() => {
           setIsDbConnected(false);
@@ -641,7 +642,7 @@ export default function QueryStudioPage() {
                         executionTime={turn.executionTime}
                         tokens={turn.tokens}
                         cost={turn.cost}
-                        dialect={`${dbConfig.dbType} 16`}
+                        dialect={dbConfig.dbType === "MongoDB" ? "MongoDB MQL" : `${dbConfig.dbType || "PostgreSQL"} 16`}
                       />
                     </div>
 

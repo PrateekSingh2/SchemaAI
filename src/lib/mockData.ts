@@ -15,6 +15,8 @@ export interface TableNodeData extends Record<string, unknown> {
   rowCount: number;
   columns: ColumnDefinition[];
   description?: string;
+  isNoSql?: boolean;
+  sampleDocument?: Record<string, any>;
 }
 
 export interface AuditLogEntry {

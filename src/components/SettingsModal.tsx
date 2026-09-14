@@ -154,9 +154,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Build payload for serverless verification endpoint
   const buildServerlessPayload = () => {
+    let mode = config.connectionMode;
+    if (!mode) {
+      if (config.dbType === "Supabase") {
+        mode = (Boolean(config.connectionUri) && !config.supabaseUrl) ? "uri" : "apikey";
+      } else if (config.dbType === "MySQL") {
+        mode = "params";
+      } else {
+        mode = "uri";
+      }
+    }
+
     return {
       dbType: config.dbType as DatabaseEngineType,
-      connectionMode: config.connectionMode || "uri",
+      connectionMode: mode,
       connectionUri: config.connectionUri,
       host: config.host,
       port: config.port,
@@ -167,17 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       supabaseUrl: config.supabaseUrl,
       supabaseAnonKey: config.supabaseAnonKey,
       supabaseServiceKey: config.supabaseServiceKey,
-      snowflakeAccount: config.snowflakeAccount,
-      snowflakeWarehouse: config.snowflakeWarehouse,
-      snowflakeSchema: config.snowflakeSchema,
-      snowflakeRole: config.snowflakeRole,
-      bigQueryProjectId: config.bigQueryProjectId,
-      bigQueryDatasetId: config.bigQueryDatasetId,
-      bigQueryClientEmail: config.bigQueryClientEmail,
-      bigQueryPrivateKey: config.bigQueryPrivateKey,
       mongoAuthSource: config.mongoAuthSource,
-      sqlitePath: config.sqlitePath,
-      sqliteCloudToken: config.sqliteCloudToken,
     };
   };
 
@@ -203,6 +204,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           serverVersion: data.serverVersion,
           tablesCount: data.tablesCount,
         });
+
+        // Prime introspected schema cache
+        if (typeof window !== "undefined" && Array.isArray(data.schemaTables) && data.schemaTables.length > 0) {
+          localStorage.setItem(
+            "schemaai_introspected_schema",
+            JSON.stringify({ tables: data.schemaTables, fks: data.fks || [] })
+          );
+        }
       } else {
         setTestResult({
           status: "error",
@@ -234,9 +243,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const data = await res.json();
 
       if (res.ok && data.success) {
-        // Save to localStorage
+        // Merge the server-resolved databaseName into the config
+        const savedConfig: DatabaseConfig = {
+          ...config,
+          databaseName: data.databaseName || config.databaseName,
+        };
+        // Persist to localStorage
         if (typeof window !== "undefined") {
-          localStorage.setItem("schemaai_db_config", JSON.stringify(config));
+          localStorage.setItem("schemaai_db_config", JSON.stringify(savedConfig));
           localStorage.setItem("schemaai_db_connected", "true");
           localStorage.setItem(
             "schemaai_introspected_schema",
@@ -244,7 +258,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           );
           window.dispatchEvent(new Event("schemaai_db_changed"));
         }
-        onSave(config);
+        onSave(savedConfig);
         onClose();
       } else {
         setTestResult({
@@ -255,14 +269,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setActiveSettingsTab("database");
       }
     } catch (err: any) {
-      // In case of offline error, save with warning
-      if (typeof window !== "undefined") {
-        localStorage.setItem("schemaai_db_config", JSON.stringify(config));
-        localStorage.setItem("schemaai_db_connected", "true");
-        window.dispatchEvent(new Event("schemaai_db_changed"));
-      }
-      onSave(config);
-      onClose();
+      setTestResult({
+        status: "error",
+        message: err?.message || "Failed to reach serverless verification endpoint.",
+        hint: "Ensure the local development server or network is active.",
+      });
+      setActiveSettingsTab("database");
     } finally {
       setIsSaving(false);
     }
@@ -351,7 +363,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const defaultMode =
                         newType === "Supabase"
                           ? "apikey"
-                          : newType === "MySQL" || newType === "Snowflake" || newType === "BigQuery"
+                          : newType === "MySQL"
                           ? "params"
                           : "uri";
                       setConfig({
@@ -364,14 +376,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                   >
                     <option value="PostgreSQL">PostgreSQL (15/16)</option>
+                    <option value="MySQL">MySQL 8.0</option>
                     <option value="Supabase">Supabase PostgreSQL</option>
                     <option value="Neon">Neon Serverless</option>
-                    <option value="MySQL">MySQL 8.0</option>
                     <option value="MongoDB">MongoDB Atlas (NoSQL)</option>
-                    <option value="Snowflake">Snowflake Data Cloud</option>
-                    <option value="BigQuery">Google Cloud BigQuery</option>
-                    <option value="SQLite">SQLite Cloud / Local</option>
-                    <option value="CockroachDB">CockroachDB Serverless</option>
                   </select>
                 </div>
 
@@ -395,9 +403,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Mode Toggle for supported databases */}
               {(config.dbType === "PostgreSQL" ||
                 config.dbType === "Neon" ||
-                config.dbType === "CockroachDB" ||
-                config.dbType === "Supabase" ||
-                config.dbType === "SQLite") && (
+                config.dbType === "Supabase") && (
                 <div className="flex items-center space-x-2 p-1 rounded-xl bg-[#121215] border border-[#222226] w-fit">
                   {config.dbType === "Supabase" ? (
                     <>
@@ -424,33 +430,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       >
                         Direct Pooler URI
-                      </button>
-                    </>
-                  ) : config.dbType === "SQLite" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setConfig({ ...config, connectionMode: "params" })}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                          currentMode === "params"
-                            ? "bg-[#1f1f26] text-[#38bdf8] shadow-sm font-semibold"
-                            : "text-zinc-400 hover:text-white"
-                        )}
-                      >
-                        Local File Path
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfig({ ...config, connectionMode: "uri" })}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                          currentMode === "uri"
-                            ? "bg-[#1f1f26] text-[#38bdf8] shadow-sm font-semibold"
-                            : "text-zinc-400 hover:text-white"
-                        )}
-                      >
-                        SQLite Cloud URI / Token
                       </button>
                     </>
                   ) : (
@@ -734,7 +713,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Auth Source</label>
+                      <label className="text-sm font-medium text-zinc-200 flex items-center justify-between">
+                        <span>Database Name</span>
+                        <span className="text-[11px] text-emerald-400 font-normal">Auto-scans cluster if empty</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={config.databaseName || ""}
+                        onChange={(e) => setConfig({ ...config, databaseName: e.target.value })}
+                        placeholder="e.g. sample_mflix, test, production"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-200 flex items-center justify-between">
+                        <span>Auth Source</span>
+                        <span className="text-[11px] text-zinc-400 font-normal">Default: admin</span>
+                      </label>
                       <input
                         type="text"
                         value={config.mongoAuthSource || ""}
@@ -744,165 +740,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* 5. SNOWFLAKE */}
-              {config.dbType === "Snowflake" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Account Identifier</label>
-                      <input
-                        type="text"
-                        value={config.snowflakeAccount || ""}
-                        onChange={(e) => setConfig({ ...config, snowflakeAccount: e.target.value })}
-                        placeholder="xy12345.us-east-1 or org-account"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Warehouse</label>
-                      <input
-                        type="text"
-                        value={config.snowflakeWarehouse || ""}
-                        onChange={(e) => setConfig({ ...config, snowflakeWarehouse: e.target.value })}
-                        placeholder="COMPUTE_WH"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Schema</label>
-                      <input
-                        type="text"
-                        value={config.snowflakeSchema || ""}
-                        onChange={(e) => setConfig({ ...config, snowflakeSchema: e.target.value })}
-                        placeholder="PUBLIC"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Role (Optional)</label>
-                      <input
-                        type="text"
-                        value={config.snowflakeRole || ""}
-                        onChange={(e) => setConfig({ ...config, snowflakeRole: e.target.value })}
-                        placeholder="ACCOUNTADMIN"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Username</label>
-                      <input
-                        type="text"
-                        value={config.username}
-                        onChange={(e) => setConfig({ ...config, username: e.target.value })}
-                        placeholder="snowflake_user"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Password / Token</label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={config.password}
-                          onChange={(e) => setConfig({ ...config, password: e.target.value })}
-                          placeholder="••••••••••••"
-                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 6. BIGQUERY */}
-              {config.dbType === "BigQuery" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Google Cloud Project ID</label>
-                      <input
-                        type="text"
-                        value={config.bigQueryProjectId || ""}
-                        onChange={(e) => setConfig({ ...config, bigQueryProjectId: e.target.value })}
-                        placeholder="schemaai-enterprise-prod"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200">Dataset ID</label>
-                      <input
-                        type="text"
-                        value={config.bigQueryDatasetId || ""}
-                        onChange={(e) => setConfig({ ...config, bigQueryDatasetId: e.target.value })}
-                        placeholder="analytics_warehouse"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-200">Service Account Client Email</label>
-                    <input
-                      type="text"
-                      value={config.bigQueryClientEmail || ""}
-                      onChange={(e) => setConfig({ ...config, bigQueryClientEmail: e.target.value })}
-                      placeholder="bigquery-reader@project.iam.gserviceaccount.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* 7. SQLITE */}
-              {config.dbType === "SQLite" && (
-                <div className="space-y-4">
-                  {currentMode === "params" ? (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
-                        <FileCode className="w-4 h-4 text-sky-400" /> Database File Path
-                      </label>
-                      <input
-                        type="text"
-                        value={config.sqlitePath || ""}
-                        onChange={(e) => setConfig({ ...config, sqlitePath: e.target.value })}
-                        placeholder="./data/production_core.db or :memory:"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
-                        <Globe className="w-4 h-4 text-sky-400" /> SQLite Cloud Connection URI / API Token
-                      </label>
-                      <input
-                        type="text"
-                        value={config.connectionUri}
-                        onChange={(e) => setConfig({ ...config, connectionUri: e.target.value })}
-                        placeholder="sqlitecloud://account.sqlite.cloud:8860/dbname?apikey=token"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
-                      />
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1038,9 +875,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[#38bdf8]/90 font-mono pt-1">
                     {testResult.latencyMs && <span>⚡ Roundtrip: {testResult.latencyMs}ms</span>}
                     <span>•</span>
-                    <span>Introspected: {testResult.tablesCount || 6} tables</span>
+                    <span>Introspected: {testResult.tablesCount ?? 0} {config.dbType === "MongoDB" ? "collections" : "tables"}</span>
                     <span>•</span>
-                    <span>TLS 1.3 Active</span>
+                    <span>TLS Active</span>
                   </div>
                 )}
               </div>

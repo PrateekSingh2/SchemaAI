@@ -37,8 +37,8 @@ interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
-  dbName = "",
-  dbType = "PostgreSQL",
+  dbName: propDbName,
+  dbType: propDbType,
   isConnected: propIsConnected,
   isLayoutCustomized = false,
   onResetLayout,
@@ -52,8 +52,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, signOutUser } = useAuth();
   const [internalConnected, setInternalConnected] = useState<boolean>(false);
-  const [internalDbName, setInternalDbName] = useState<string>(dbName);
-  const [internalDbType, setInternalDbType] = useState<string>(dbType);
+  const [internalDbName, setInternalDbName] = useState<string>(propDbName || "");
+  const [internalDbType, setInternalDbType] = useState<string>(propDbType || "");
 
   const handleOpenSettingsModal = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -69,17 +69,16 @@ export const Topbar: React.FC<TopbarProps> = ({
     const handleStorageChange = () => {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("schemaai_db_connected");
-        setInternalConnected(stored === "true");
+        const isConn = stored === "true";
+        setInternalConnected(isConn);
         try {
           const cfg = localStorage.getItem("schemaai_db_config");
           if (cfg) {
             const parsed = JSON.parse(cfg);
             if (parsed && typeof parsed === "object") {
-              setInternalDbType(parsed.dbType || "PostgreSQL");
+              setInternalDbType(parsed.dbType || "");
               setInternalDbName(
-                parsed.databaseName === "production_core_db"
-                  ? ""
-                  : parsed.databaseName || parsed.sqlitePath || ""
+                parsed.databaseName || parsed.sqlitePath || ""
               );
             }
           }
@@ -95,15 +94,17 @@ export const Topbar: React.FC<TopbarProps> = ({
 
     window.addEventListener("schemaai_db_changed", handleStorageChange);
     window.addEventListener("schemaai_open_settings", handleGlobalOpenSettings);
+    window.addEventListener("storage", handleStorageChange);
     return () => {
       window.removeEventListener("schemaai_db_changed", handleStorageChange);
       window.removeEventListener("schemaai_open_settings", handleGlobalOpenSettings);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, [onOpenSettings]);
 
   const isConnected = propIsConnected !== undefined ? propIsConnected : internalConnected;
-  const currentDbName = dbName || internalDbName;
-  const currentDbType = dbType || internalDbType;
+  const currentDbType = (propDbType && propDbType !== "Database" ? propDbType : internalDbType) || (isConnected ? "Database" : "Database");
+  const currentDbName = propDbName || internalDbName || (isConnected ? "Connected" : "Not Connected");
 
   const handleDisconnect = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -141,7 +142,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       href: "/schema",
       label: "Schema Explorer",
       icon: Network,
-      badge: "6 tables",
+      badge: internalConnected ? "Live Schema" : "Not Connected",
       isActive: pathname.startsWith("/schema"),
     },
     {

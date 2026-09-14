@@ -845,11 +845,30 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 32000,
         description: "User profiles, roles, and authorization grants",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          email: "alex.chen@schemaai.io",
+          displayName: "Alex Chen",
+          role: "admin",
+          profile: {
+            avatarUrl: "https://avatar.vercel.sh/alex",
+            timezone: "America/Los_Angeles",
+            bio: "Lead Infrastructure Architect"
+          },
+          preferences: {
+            notifications: true,
+            theme: "dark"
+          },
+          createdAt: { $date: "2024-01-15T08:30:00.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "email", type: "String", isNullable: false },
           { name: "displayName", type: "String", isNullable: false },
           { name: "role", type: "String", isNullable: false },
+          { name: "profile", type: "Object", isNullable: false },
+          { name: "preferences", type: "Object", isNullable: false },
           { name: "createdAt", type: "Date", isNullable: false },
         ],
       },
@@ -858,11 +877,24 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 450,
         description: "Collaborative project workspaces and access domains",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f602" },
+          ownerId: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          name: "Acme Production Core",
+          tier: "enterprise",
+          settings: {
+            mfaRequired: true,
+            ipWhitelist: ["192.168.1.0/24"]
+          },
+          createdAt: { $date: "2024-01-16T10:15:00.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "ownerId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "users._id" },
           { name: "name", type: "String", isNullable: false },
           { name: "tier", type: "String", isNullable: false },
+          { name: "settings", type: "Object", isNullable: false },
           { name: "createdAt", type: "Date", isNullable: false },
         ],
       },
@@ -871,11 +903,20 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 2800,
         description: "User memberships and role permissions inside workspaces",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f603" },
+          workspaceId: { $oid: "65e8a1f4b89a01c3d4e5f602" },
+          userId: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          permissions: ["read", "write", "manage_billing", "drop_collection"],
+          invitedBy: "alex.chen@schemaai.io"
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "workspaceId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "workspaces._id" },
           { name: "userId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "users._id" },
           { name: "permissions", type: "Array<String>", isNullable: false },
+          { name: "invitedBy", type: "String", isNullable: false },
         ],
       },
       {
@@ -883,6 +924,17 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 1800,
         description: "Dynamic document collections and schema definitions",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f604" },
+          workspaceId: { $oid: "65e8a1f4b89a01c3d4e5f602" },
+          name: "orders_v2",
+          schemaDefinition: {
+            bsonType: "object",
+            required: ["orderId", "totalAmount"]
+          },
+          isPublic: false
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "workspaceId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "workspaces._id" },
@@ -896,6 +948,23 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 145000,
         description: "Schema-less JSON document data stores",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f605" },
+          collectionId: { $oid: "65e8a1f4b89a01c3d4e5f604" },
+          authorId: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          data: {
+            orderNumber: "ORD-9842",
+            items: [
+              { sku: "PROD-101", quantity: 2, price: 49.99 },
+              { sku: "PROD-204", quantity: 1, price: 129.00 }
+            ],
+            subtotal: 228.98,
+            status: "delivered"
+          },
+          version: 2,
+          updatedAt: { $date: "2024-02-01T12:00:00.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "collectionId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "collections._id" },
@@ -910,6 +979,16 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 320000,
         description: "Document versioning history and revision diffs",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f606" },
+          documentId: { $oid: "65e8a1f4b89a01c3d4e5f605" },
+          modifiedBy: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          diff: {
+            status: { from: "processing", to: "delivered" }
+          },
+          timestamp: { $date: "2024-02-01T12:00:00.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "documentId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "documents._id" },
@@ -923,6 +1002,15 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 18400,
         description: "GridFS and S3 file asset attachments",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f607" },
+          workspaceId: { $oid: "65e8a1f4b89a01c3d4e5f602" },
+          fileName: "report_q4_2024.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 4194304,
+          s3Url: "https://s3.amazonaws.com/my-bucket/report_q4_2024.pdf"
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "workspaceId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "workspaces._id" },
@@ -937,6 +1025,18 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 890000,
         description: "Time-series interaction logs and analytics telemetry",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f608" },
+          workspaceId: { $oid: "65e8a1f4b89a01c3d4e5f602" },
+          eventType: "query_executed",
+          metadata: {
+            executionMs: 14,
+            matchedRecords: 48,
+            client: "web-ui"
+          },
+          timestamp: { $date: "2024-02-02T16:45:10.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "workspaceId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "workspaces._id" },
@@ -950,6 +1050,14 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 14000,
         description: "Active user JWT sessions and login tokens",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f609" },
+          userId: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          device: "MacBookPro M3 / Chrome 122",
+          ipAddress: "72.14.201.88",
+          expiresAt: { $date: "2024-02-09T08:30:00.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "userId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "users._id" },
@@ -963,6 +1071,17 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 680,
         description: "Third-party connector webhooks and API credentials",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f610" },
+          workspaceId: { $oid: "65e8a1f4b89a01c3d4e5f602" },
+          provider: "slack_notifications",
+          config: {
+            channel: "#alerts",
+            webhookUrl: "https://hooks.slack.com/services/..."
+          },
+          isActive: true
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "workspaceId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "workspaces._id" },
@@ -976,6 +1095,14 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 45000,
         description: "In-app push notifications and alerts",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f611" },
+          userId: { $oid: "65e8a1f4b89a01c3d4e5f601" },
+          message: "New schema deployment successfully published.",
+          isRead: false,
+          createdAt: { $date: "2024-02-02T18:00:00.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "userId", type: "ObjectId", isForeignKey: true, foreignKeyRef: "users._id" },
@@ -989,6 +1116,14 @@ export const ENGINE_SCHEMAS: Record<
         schema: "mongodb",
         rowCount: 540000,
         description: "Cluster operations and service error traces",
+        isNoSql: true,
+        sampleDocument: {
+          _id: { $oid: "65e8a1f4b89a01c3d4e5f612" },
+          service: "auth-gateway",
+          level: "info",
+          message: "Handshake completed for node-03",
+          timestamp: { $date: "2024-02-02T18:05:12.000Z" }
+        },
         columns: [
           { name: "_id", type: "ObjectId", isPrimaryKey: true },
           { name: "service", type: "String", isNullable: false },
@@ -1815,17 +1950,23 @@ export function getIntrospectedSchema(
   const COL_WIDTH = 350;
   const ROW_HEIGHT = 300;
 
+  const isNoSql = dbType === "MongoDB";
+
   const nodes: Node<TableNodeData>[] = tables.map((t, index) => {
     const col = index % COLS;
     const row = Math.floor(index / COLS);
+    const nodeIsNoSql = t.isNoSql ?? isNoSql;
     return {
       id: t.tableName,
-      type: "tableNode",
+      type: nodeIsNoSql ? "documentNode" : "tableNode",
       position: {
         x: 40 + col * COL_WIDTH,
         y: 40 + row * ROW_HEIGHT,
       },
-      data: t,
+      data: {
+        ...t,
+        isNoSql: nodeIsNoSql,
+      },
     };
   });
 
