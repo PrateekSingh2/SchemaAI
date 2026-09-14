@@ -64,30 +64,29 @@ export interface DatabaseConfig {
 const DEFAULT_CONFIG: DatabaseConfig = {
   dbType: "PostgreSQL",
   connectionMode: "uri",
-  connectionUri:
-    "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
-  username: "postgres.admin",
-  password: "••••••••••••••••",
-  databaseName: "production_core_db",
-  host: "aws-0-us-east-1.pooler.supabase.com",
-  port: 5432,
+  connectionUri: "",
+  username: "",
+  password: "",
+  databaseName: "",
+  host: "",
+  port: "",
   ssl: true,
-  supabaseUrl: "https://your-project.supabase.co",
-  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.••••••••",
+  supabaseUrl: "",
+  supabaseAnonKey: "",
   supabaseServiceKey: "",
-  snowflakeAccount: "xy12345.us-east-1",
-  snowflakeWarehouse: "COMPUTE_WH",
-  snowflakeSchema: "PUBLIC",
-  snowflakeRole: "ACCOUNTADMIN",
-  bigQueryProjectId: "schemaai-prod-2026",
-  bigQueryDatasetId: "analytics_warehouse",
-  bigQueryClientEmail: "service-account@schemaai-prod-2026.iam.gserviceaccount.com",
+  snowflakeAccount: "",
+  snowflakeWarehouse: "",
+  snowflakeSchema: "",
+  snowflakeRole: "",
+  bigQueryProjectId: "",
+  bigQueryDatasetId: "",
+  bigQueryClientEmail: "",
   bigQueryPrivateKey: "",
-  mongoAuthSource: "admin",
-  sqlitePath: "./data/production_core.db",
+  mongoAuthSource: "",
+  sqlitePath: "",
   sqliteCloudToken: "",
   llmProvider: "openai",
-  llmApiKey: "sk-proj-••••••••••••••••••••••••••••••••",
+  llmApiKey: "",
   enableQueryGuard: true,
 };
 
@@ -102,13 +101,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [config, setConfig] = useState<DatabaseConfig>(DEFAULT_CONFIG);
 
-  // Restore saved config from localStorage on mount
+  // Restore saved config from localStorage on mount (filtering out any previous dummy/test data)
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("schemaai_db_config");
         if (stored) {
           const parsed = JSON.parse(stored);
+          if (parsed.connectionUri && parsed.connectionUri.includes("••••")) {
+            parsed.connectionUri = "";
+          }
+          if (parsed.password && parsed.password.includes("••••")) {
+            parsed.password = "";
+          }
+          if (parsed.username && parsed.username === "postgres.admin") {
+            parsed.username = "";
+          }
+          if (parsed.databaseName && parsed.databaseName === "production_core_db") {
+            parsed.databaseName = "";
+          }
+          if (parsed.supabaseAnonKey && parsed.supabaseAnonKey.includes("••••")) {
+            parsed.supabaseAnonKey = "";
+          }
+          if (parsed.llmApiKey && parsed.llmApiKey.includes("••••")) {
+            parsed.llmApiKey = "";
+          }
           setConfig((prev) => ({ ...prev, ...parsed }));
         }
       } catch (e) {
@@ -137,9 +154,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Build payload for serverless verification endpoint
   const buildServerlessPayload = () => {
+    let mode = config.connectionMode;
+    if (!mode) {
+      if (config.dbType === "Supabase") {
+        mode = (Boolean(config.connectionUri) && !config.supabaseUrl) ? "uri" : "apikey";
+      } else if (config.dbType === "MySQL") {
+        mode = "params";
+      } else {
+        mode = "uri";
+      }
+    }
+
     return {
       dbType: config.dbType as DatabaseEngineType,
-      connectionMode: config.connectionMode || "uri",
+      connectionMode: mode,
       connectionUri: config.connectionUri,
       host: config.host,
       port: config.port,
@@ -150,17 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       supabaseUrl: config.supabaseUrl,
       supabaseAnonKey: config.supabaseAnonKey,
       supabaseServiceKey: config.supabaseServiceKey,
-      snowflakeAccount: config.snowflakeAccount,
-      snowflakeWarehouse: config.snowflakeWarehouse,
-      snowflakeSchema: config.snowflakeSchema,
-      snowflakeRole: config.snowflakeRole,
-      bigQueryProjectId: config.bigQueryProjectId,
-      bigQueryDatasetId: config.bigQueryDatasetId,
-      bigQueryClientEmail: config.bigQueryClientEmail,
-      bigQueryPrivateKey: config.bigQueryPrivateKey,
       mongoAuthSource: config.mongoAuthSource,
-      sqlitePath: config.sqlitePath,
-      sqliteCloudToken: config.sqliteCloudToken,
     };
   };
 
@@ -186,6 +204,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           serverVersion: data.serverVersion,
           tablesCount: data.tablesCount,
         });
+
+        // Prime introspected schema cache
+        if (typeof window !== "undefined" && Array.isArray(data.schemaTables) && data.schemaTables.length > 0) {
+          localStorage.setItem(
+            "schemaai_introspected_schema",
+            JSON.stringify({ tables: data.schemaTables, fks: data.fks || [] })
+          );
+        }
       } else {
         setTestResult({
           status: "error",
@@ -357,9 +383,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                   >
                     <option value="PostgreSQL">PostgreSQL (15/16)</option>
+                    <option value="MySQL">MySQL 8.0</option>
                     <option value="Supabase">Supabase PostgreSQL</option>
                     <option value="Neon">Neon Serverless</option>
-                    <option value="MySQL">MySQL 8.0</option>
                     <option value="MongoDB">MongoDB Atlas (NoSQL)</option>
                   </select>
                 </div>
@@ -375,7 +401,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onChange={(e) =>
                       setConfig({ ...config, databaseName: e.target.value })
                     }
-                    placeholder="production_core_db"
+                    placeholder="e.g. production_db or postgres"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                   />
                 </div>
@@ -498,7 +524,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <label className="text-sm font-medium text-zinc-200">Port</label>
                           <input
                             type="number"
-                            value={config.port || (config.dbType === "CockroachDB" ? 26257 : 5432)}
+                            value={config.port ?? ""}
                             onChange={(e) => setConfig({ ...config, port: e.target.value })}
                             placeholder={config.dbType === "CockroachDB" ? "26257" : "5432"}
                             className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
@@ -515,7 +541,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             type="text"
                             value={config.username}
                             onChange={(e) => setConfig({ ...config, username: e.target.value })}
-                            placeholder="postgres.admin"
+                            placeholder="postgres / username"
                             className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
                           />
                         </div>
@@ -628,7 +654,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <label className="text-sm font-medium text-zinc-200">Port</label>
                       <input
                         type="number"
-                        value={config.port || 3306}
+                        value={config.port ?? ""}
                         onChange={(e) => setConfig({ ...config, port: e.target.value })}
                         placeholder="3306"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
@@ -839,9 +865,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[#38bdf8]/90 font-mono pt-1">
                     {testResult.latencyMs && <span>⚡ Roundtrip: {testResult.latencyMs}ms</span>}
                     <span>•</span>
-                    <span>Introspected: {testResult.tablesCount || 6} tables</span>
+                    <span>Introspected: {testResult.tablesCount ?? 0} {config.dbType === "MongoDB" ? "collections" : "tables"}</span>
                     <span>•</span>
-                    <span>TLS 1.3 Active</span>
+                    <span>TLS Active</span>
                   </div>
                 )}
               </div>

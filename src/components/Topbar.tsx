@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { SettingsModal } from "@/components/SettingsModal";
 
 import { SettingsModal } from "@/components/SettingsModal";
 
@@ -114,6 +115,7 @@ export const Topbar: React.FC<TopbarProps> = ({
     setInternalConnected(false);
     if (typeof window !== "undefined") {
       localStorage.setItem("schemaai_db_connected", "false");
+      localStorage.removeItem("schemaai_introspected_schema");
       window.dispatchEvent(new Event("schemaai_db_changed"));
     }
     if (onDisconnect) {
@@ -144,7 +146,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       href: "/schema",
       label: "Schema Explorer",
       icon: Network,
-      badge: "6 tables",
+      badge: internalConnected ? "Live Schema" : "Not Connected",
       isActive: pathname.startsWith("/schema"),
     },
     {

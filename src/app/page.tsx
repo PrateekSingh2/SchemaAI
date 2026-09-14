@@ -18,6 +18,7 @@ import {
 import {
   detectMutation,
   generateMockResult,
+  AuditLogEntry,
 } from "@/lib/mockData";
 import {
   Database,
@@ -36,50 +37,6 @@ import {
   deleteUserChatSessionFromFirestore,
   clearAllUserChatSessionsFromFirestore,
 } from "@/lib/chatService";
-
-const INITIAL_TURNS: ChatMessageTurn[] = [
-  {
-    id: "turn-1",
-    userPrompt: "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time",
-    timestamp: "10m ago",
-    sql: `SELECT \n  u.id AS user_id,\n  u.username,\n  u.email,\n  u.role,\n  COUNT(DISTINCT s.problem_id) AS problems_solved,\n  SUM(s.score_awarded) AS total_score,\n  ROUND(AVG(s.execution_time_ms), 2) AS avg_runtime_ms\nFROM users u\nJOIN submissions s ON u.id = s.user_id\nJOIN problems p ON s.problem_id = p.id\nWHERE s.status = 'ACCEPTED'\nGROUP BY u.id, u.username, u.email, u.role\nORDER BY total_score DESC, avg_runtime_ms ASC\nLIMIT 5;`,
-    queryFormat: "sql",
-    hasRun: true,
-    records: [
-      { user_id: "usr_99a82b", username: "alex_chen", email: "alex.chen@cyber.dev", role: "contender", problems_solved: 48, total_score: 4800, avg_runtime_ms: 24.5 },
-      { user_id: "usr_44f10c", username: "elena_rostova", email: "elena.r@deepmath.org", role: "master", problems_solved: 46, total_score: 4650, avg_runtime_ms: 31.2 },
-      { user_id: "usr_77e31d", username: "marcus_v", email: "m.vance@quantum.ai", role: "master", problems_solved: 42, total_score: 4200, avg_runtime_ms: 28.8 },
-      { user_id: "usr_12c98a", username: "sophia_k", email: "sophia.k@matrix.io", role: "contender", problems_solved: 39, total_score: 3950, avg_runtime_ms: 45.1 },
-      { user_id: "usr_88d33e", username: "dev_siddharth", email: "sid.sharma@byteflow.net", role: "pro", problems_solved: 37, total_score: 3700, avg_runtime_ms: 38.6 },
-    ],
-    columns: ["user_id", "username", "email", "role", "problems_solved", "total_score", "avg_runtime_ms"],
-    executionTime: 32,
-    tokens: 285,
-    cost: "$0.0011",
-  },
-];
-
-const INITIAL_OPERATIONS: ChatOperation[] = [
-  {
-    id: "op-1",
-    prompt: "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time",
-    sql: INITIAL_TURNS[0].sql,
-    timestamp: "10m ago",
-    format: "sql",
-    status: "executed",
-    rowCount: 5,
-    turns: INITIAL_TURNS,
-  },
-  {
-    id: "op-2",
-    prompt: "Show all active quizzes along with the count of easy, medium, and hard problems linked to each.",
-    sql: `SELECT \n  q.id AS quiz_id,\n  q.title AS quiz_title,\n  q.pass_percentage,\n  COUNT(p.id) AS total_problems,\n  q.is_active\nFROM quizzes q\nLEFT JOIN problems p ON q.id = p.quiz_id\nWHERE q.is_active = true\nGROUP BY q.id, q.title, q.pass_percentage, q.is_active;`,
-    timestamp: "25m ago",
-    format: "sql",
-    status: "generated",
-    rowCount: 5,
-  },
-];
 
 export default function QueryStudioPage() {
   const router = useRouter();
@@ -104,17 +61,13 @@ export default function QueryStudioPage() {
     const checkDbStatus = () => {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("schemaai_db_connected");
-        const isConn = stored === "true";
-        setIsDbConnected(isConn);
+        setIsDbConnected(stored === "true");
         try {
           const cfg = localStorage.getItem("schemaai_db_config");
           if (cfg) {
             const parsed = JSON.parse(cfg);
             if (parsed && typeof parsed === "object") {
-              const cleanedDbName =
-                parsed.databaseName === "production_core_db"
-                  ? ""
-                  : parsed.databaseName || parsed.sqlitePath || "";
+              const cleanedDbName = parsed.databaseName || parsed.sqlitePath || "";
               setDbConfig((prev) => ({
                 ...prev,
                 dbType: parsed.dbType || prev.dbType,
@@ -191,7 +144,7 @@ export default function QueryStudioPage() {
   const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
 
   // Operations / Chat History (synced with Firestore for logged-in user)
-  const [operations, setOperations] = useState<ChatOperation[]>(INITIAL_OPERATIONS);
+  const [operations, setOperations] = useState<ChatOperation[]>([]);
 
   // Load chat history from Firestore when authenticated
   useEffect(() => {
@@ -206,7 +159,7 @@ export default function QueryStudioPage() {
           console.warn("Could not load user chats:", err);
         }
       } else {
-        setOperations(INITIAL_OPERATIONS);
+        setOperations([]);
       }
     }
     loadUserChats();
@@ -252,6 +205,29 @@ export default function QueryStudioPage() {
   // 1. Submit a prompt:
   // Checks for active database connection first!
   // If not connected, keeps prompt safe in cache and shows Database Required Modal!
+  const recordAuditLog = (userPrompt: string, sql: string, durationMs: number, rowCount: number) => {
+    try {
+      if (typeof window !== "undefined") {
+        const mutationCheck = detectMutation(sql);
+        const logEntry: AuditLogEntry = {
+          id: `LOG-${Date.now().toString().slice(-6)}`,
+          timestamp: new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC",
+          ipAddress: "127.0.0.1",
+          userPrompt,
+          generatedSql: sql,
+          status: mutationCheck.isMutation ? "MUTATION_APPROVED" : "SUCCESS",
+          durationMs: durationMs || 28,
+          rowsAffected: rowCount,
+          model: "GPT-4o (schema-tuned)",
+          clientDevice: typeof navigator !== "undefined" && navigator.userAgent.includes("Mac") ? "Chrome / macOS" : "Browser Client",
+        };
+        const prevLogs = JSON.parse(localStorage.getItem("schemaai_audit_logs") || "[]");
+        localStorage.setItem("schemaai_audit_logs", JSON.stringify([logEntry, ...(Array.isArray(prevLogs) ? prevLogs : [])].slice(0, 100)));
+        window.dispatchEvent(new Event("schemaai_audit_logs_changed"));
+      }
+    } catch (_) {}
+  };
+
   const handleGenerateQuery = async (promptText: string) => {
     if (!promptText.trim()) return;
 
@@ -357,6 +333,8 @@ export default function QueryStudioPage() {
         })
       );
     }
+
+    recordAuditLog(promptText, mockOutput.sql, mockOutput.executionTime, mockOutput.records.length);
   };
 
   // 2. Run Query action for a specific turn
@@ -428,6 +406,8 @@ export default function QueryStudioPage() {
         )
       );
     }
+
+    recordAuditLog(promptToCheck, queryToExecute, mockOutput.executionTime, mockOutput.records.length);
   };
 
   // 3. User edits SQL for a specific turn
@@ -557,8 +537,8 @@ export default function QueryStudioPage() {
     <div className="h-screen-dvh w-screen overflow-hidden bg-[#0e0e11] text-[#f4f4f5] flex flex-col font-sans select-none antialiased">
       {/* Top Navbar */}
       <Topbar
-        dbName={isDbConnected ? (dbConfig.databaseName || undefined) : undefined}
-        dbType={isDbConnected ? (dbConfig.dbType || undefined) : undefined}
+        dbName={isDbConnected ? dbConfig.databaseName : undefined}
+        dbType={isDbConnected ? dbConfig.dbType : undefined}
         isConnected={isDbConnected}
         onDisconnect={() => {
           setIsDbConnected(false);

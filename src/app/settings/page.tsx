@@ -30,15 +30,41 @@ export default function SettingsPage() {
 
   const [config, setConfig] = useState<DatabaseConfig>({
     dbType: "PostgreSQL",
-    connectionUri:
-      "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
-    username: "postgres.admin",
-    password: "••••••••••••••••",
-    databaseName: "production_core_db",
+    connectionUri: "",
+    username: "",
+    password: "",
+    databaseName: "",
     llmProvider: "openai",
-    llmApiKey: "sk-proj-••••••••••••••••••••••••••••••••",
+    llmApiKey: "",
     enableQueryGuard: true,
   });
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("schemaai_db_config");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.connectionUri && parsed.connectionUri.includes("••••")) {
+            parsed.connectionUri = "";
+          }
+          if (parsed.password && parsed.password.includes("••••")) {
+            parsed.password = "";
+          }
+          if (parsed.username && parsed.username === "postgres.admin") {
+            parsed.username = "";
+          }
+          if (parsed.databaseName && parsed.databaseName === "production_core_db") {
+            parsed.databaseName = "";
+          }
+          if (parsed.llmApiKey && parsed.llmApiKey.includes("••••")) {
+            parsed.llmApiKey = "";
+          }
+          setConfig((prev) => ({ ...prev, ...parsed }));
+        }
+      } catch (_) {}
+    }
+  }, []);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
