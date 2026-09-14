@@ -17,6 +17,11 @@ interface PromptInputProps {
   value?: string;
   onChange?: (val: string) => void;
   isCentered?: boolean;
+  savedModels?: { id: string; provider: string; name: string; apiKey: string }[];
+  activeModelId?: string;
+  onModelChange?: (modelId: string) => void;
+  dbType?: string;
+  onOpenSettings?: (tab?: "database" | "ai" | "security") => void;
 }
 
 export const PromptInput: React.FC<PromptInputProps> = ({
@@ -25,6 +30,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   value,
   onChange,
   isCentered = false,
+  savedModels = [],
+  activeModelId,
+  onModelChange,
+  dbType,
+  onOpenSettings,
 }) => {
   const [internalPrompt, setInternalPrompt] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -252,7 +262,52 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   <span>↵</span>
                   <span>Return</span>
                 </kbd>
-                <span className="text-zinc-500 text-xs hidden sm:inline">• Natural language to SQL</span>
+                <div className="hidden sm:flex items-center space-x-1.5 ml-1">
+                  <span className="text-zinc-600">•</span>
+                  {savedModels.length > 0 ? (
+                    <select
+                      value={activeModelId || ""}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_model__") {
+                          onOpenSettings?.("ai");
+                        } else {
+                          onModelChange?.(e.target.value);
+                        }
+                      }}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer max-w-[150px] truncate"
+                    >
+                      {savedModels.map((m) => (
+                        <option key={m.id} value={m.id} className="bg-[#141418] text-zinc-200">
+                          {m.name}
+                        </option>
+                      ))}
+                      <option value="__add_model__" className="bg-[#141418] text-amber-400">
+                        + Add Model...
+                      </option>
+                    </select>
+                  ) : (
+                    <button
+                      onClick={() => onOpenSettings?.("ai")}
+                      className="text-amber-400 hover:text-amber-300 text-xs cursor-pointer bg-amber-400/10 px-2 py-0.5 rounded"
+                    >
+                      Add AI Model
+                    </button>
+                  )}
+                </div>
+                {dbType && onOpenSettings && (
+                  <div className="hidden sm:flex items-center space-x-1.5 ml-1">
+                    <span className="text-zinc-600">•</span>
+                    <button
+                      onClick={() => onOpenSettings?.("database")}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer text-left"
+                    >
+                      {dbType} <span className="text-zinc-600">▾</span>
+                    </button>
+                  </div>
+                )}
+                {(!activeModelId || !dbType) && (
+                  <span className="text-zinc-500 text-xs hidden sm:inline">• Natural language to SQL</span>
+                )}
               </div>
             )}
 
@@ -369,9 +424,54 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           <div className="flex items-center space-x-2 text-zinc-500 select-none">
             <kbd className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-zinc-300 font-mono text-[10px] shadow-sm">
               <span>↵</span>
-              <span>Return</span>
+                  <span>Return</span>
             </kbd>
-            <span className="text-zinc-500 text-[11px] hidden sm:inline">Send prompt</span>
+                <div className="hidden sm:flex items-center space-x-1 ml-0.5">
+                  <span className="text-zinc-600 text-[11px]">•</span>
+                  {savedModels.length > 0 ? (
+                    <select
+                      value={activeModelId || ""}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_model__") {
+                          onOpenSettings?.("ai");
+                        } else {
+                          onModelChange?.(e.target.value);
+                        }
+                      }}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer max-w-[120px] truncate"
+                    >
+                      {savedModels.map((m) => (
+                        <option key={m.id} value={m.id} className="bg-[#141418] text-zinc-200">
+                          {m.name}
+                        </option>
+                      ))}
+                      <option value="__add_model__" className="bg-[#141418] text-amber-400">
+                        + Add Model...
+                      </option>
+                    </select>
+                  ) : (
+                    <button
+                      onClick={() => onOpenSettings?.("ai")}
+                      className="text-amber-400 hover:text-amber-300 text-[11px] cursor-pointer bg-amber-400/10 px-1.5 py-0.5 rounded"
+                    >
+                      Add AI Model
+                    </button>
+                  )}
+                </div>
+            {dbType && onOpenSettings && (
+              <div className="hidden sm:flex items-center space-x-1 ml-0.5">
+                <span className="text-zinc-600 text-[11px]">•</span>
+                <button
+                  onClick={() => onOpenSettings?.("database")}
+                  className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer text-left"
+                >
+                  {dbType} <span className="text-zinc-600">▾</span>
+                </button>
+              </div>
+            )}
+            {(!activeModelId || !dbType) && (
+              <span className="text-zinc-500 text-[11px] hidden sm:inline">Send prompt</span>
+            )}
           </div>
         )}
 

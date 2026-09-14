@@ -19,6 +19,8 @@ export interface ChatMessageTurn {
   sql: string;
   graphql?: string;
   queryFormat: "sql" | "graphql";
+  type?: "sql" | "text";
+  textContent?: string;
   hasRun: boolean;
   records: Array<Record<string, unknown>>;
   columns: string[];
@@ -36,6 +38,8 @@ export interface ChatOperation {
   graphql?: string;
   timestamp: string;
   format: "sql" | "graphql";
+  type?: "sql" | "text";
+  textContent?: string;
   status: "generated" | "executed" | "mutation";
   rowCount?: number;
   records?: Array<Record<string, unknown>>;

@@ -116,24 +116,17 @@ export default function QueryStudioPage() {
     executionTime: 30,
   });
 
-  // Query Studio state with safe persistent cache so prompt is never lost
-  const [currentPrompt, setCurrentPrompt] = useState<string>("");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const cached = sessionStorage.getItem("schemaai_cached_prompt");
-      if (cached) {
-        setCurrentPrompt(cached);
-      }
-    }
-  }, []);
-
-  const handlePromptChange = (val: string) => {
-    setCurrentPrompt(val);
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("schemaai_cached_prompt", val);
-    }
-  };
+  // Database config
+  const [dbConfig, setDbConfig] = useState({
+    dbType: "PostgreSQL",
+    connectionUri: "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
+    username: "postgres.admin",
+    password: "••••••••••••••••",
+    databaseName: "production_core_db",
+    savedModels: [] as { id: string; provider: string; name: string; apiKey: string }[],
+    activeModelId: "",
+    enableQueryGuard: true,
+  });
 
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -173,6 +166,10 @@ export default function QueryStudioPage() {
     targetTable?: string;
     mutationType?: string;
   } | null>(null);
+
+  // Agentic UI State
+  const [maskedColumns, setMaskedColumns] = useState<string[]>([]);
+  const [activeChart, setActiveChart] = useState<{ type: string; key: string } | null>(null);
 
   // Scroll ref for single unified scrollbar
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -268,23 +265,90 @@ export default function QueryStudioPage() {
     // Append turn to the current conversation
     setActiveTurns((prev) => [...prev, newTurnPlaceholder]);
 
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    let generatedSql = "";
+    let generatedText = "";
+    let responseType: "sql" | "text" = "sql";
+    const startTime = performance.now();
 
+    try {
+      const activeModel = dbConfig.savedModels.find(m => m.id === dbConfig.activeModelId);
+      const provider = activeModel ? activeModel.provider : "openai";
+      const apiKey = activeModel ? activeModel.apiKey : "";
+      const modelId = activeModel ? activeModel.modelId : "";
+
+      if (!apiKey) {
+        throw new Error("No AI Model selected. Please click 'Add AI Model' in the chat bar below to select or add a model.");
+      }
+
+      const response = await fetch("http://127.0.0.1:8000/api/v1/agent/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: promptText,
+          llmProvider: provider,
+          llmApiKey: apiKey,
+          llmModel: modelId,
+          dbType: dbConfig.dbType,
+          connectionUri: dbConfig.connectionUri,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        responseType = data.type || "sql";
+        
+        if (responseType === "tool_call" && data.toolCall) {
+          const { tool, args } = data.toolCall;
+          if (tool === "apply_data_masking") {
+            setMaskedColumns(args.columns || []);
+            generatedText = `Applied data masking to columns: ${(args.columns || []).join(", ")}`;
+            responseType = "text";
+          } else if (tool === "render_visualization") {
+            setActiveChart({ type: args.chart_type, key: args.data_key });
+            generatedText = `Rendering a ${args.chart_type} chart for column: ${args.data_key}`;
+            responseType = "text";
+          } else if (tool === "generate_sql") {
+            generatedSql = args.query;
+            responseType = "sql";
+          } else {
+            generatedText = `Executed unknown tool: ${tool}`;
+            responseType = "text";
+          }
+        } else if (responseType === "sql") {
+          generatedSql = data.content || "-- No SQL generated";
+        } else {
+          generatedText = data.content || "";
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        responseType = "text";
+        const errorMessage = errorData.detail || errorData.error || response.statusText;
+        generatedText = `⚠️ Error: ${errorMessage}`;
+      }
+    } catch (error: any) {
+      console.error("Fetch error:", error);
+      responseType = "text";
+      generatedText = `⚠️ ${error.message || "Network or Server Error"}`;
+    }
+
+    const executionTimeMs = performance.now() - startTime;
     const mockOutput = generateMockResult(promptText, "sql");
 
     const completedTurn: ChatMessageTurn = {
       id: turnId,
       userPrompt: promptText,
       timestamp: "Just now",
-      sql: mockOutput.sql,
+      sql: generatedSql, 
       graphql: mockOutput.graphql,
       queryFormat: "sql",
+      type: responseType,
+      textContent: generatedText,
       hasRun: false,
-      records: mockOutput.records,
+      records: mockOutput.records, 
       columns: mockOutput.columns,
-      executionTime: mockOutput.executionTime,
-      tokens: mockOutput.tokens,
-      cost: mockOutput.cost,
+      executionTime: executionTimeMs,
+      tokens: responseType === "sql" ? generatedSql.length / 4 : generatedText.length / 4, 
+      cost: "$0.0001",
       isGenerating: false,
     };
 
@@ -299,10 +363,12 @@ export default function QueryStudioPage() {
       const newOp: ChatOperation = {
         id: newOpId,
         prompt: promptText,
-        sql: mockOutput.sql,
+        sql: generatedSql,
         graphql: mockOutput.graphql,
         timestamp: "Just now",
         format: "sql",
+        type: responseType,
+        textContent: generatedText,
         status: "generated",
         rowCount: mockOutput.records.length,
         records: mockOutput.records,
@@ -310,27 +376,22 @@ export default function QueryStudioPage() {
         executionTime: mockOutput.executionTime,
         turns: [completedTurn],
       };
-      setOperations((prev) => [newOp, ...prev]);
-      setActiveOperationId(newOpId);
-      if (user?.uid) {
-        saveChatSessionToFirestore(user.uid, newOp);
+      // Only push SQL operations to the sidebar to keep it clean from text chat
+      if (responseType === "sql") {
+        setOperations((prev) => [newOp, ...prev]);
+        setActiveOperationId(newOpId);
       }
     } else {
       setOperations((prev) =>
-        prev.map((op) => {
-          if (op.id === activeOperationId) {
-            const updatedOp: ChatOperation = {
-              ...op,
-              sql: mockOutput.sql,
-              turns: [...(op.turns || []), completedTurn],
-            };
-            if (user?.uid) {
-              saveChatSessionToFirestore(user.uid, updatedOp);
-            }
-            return updatedOp;
-          }
-          return op;
-        })
+        prev.map((op) =>
+          op.id === activeOperationId
+            ? {
+                ...op,
+                sql: responseType === "sql" ? generatedSql : op.sql,
+                turns: [...(op.turns || []), completedTurn],
+              }
+            : op
+        )
       );
     }
 
@@ -363,9 +424,36 @@ export default function QueryStudioPage() {
       prev.map((t) => (t.id === turnId ? { ...t, isExecuting: true } : t))
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const startTime = performance.now();
+    let records: any[] = [];
+    let columns: string[] = [];
 
-    const mockOutput = generateMockResult(promptToCheck, turn.queryFormat);
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sql: queryToExecute,
+          connectionUri: dbConfig.connectionUri,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        records = data.records || [];
+        columns = data.columns || [];
+      } else {
+        console.error("Execute error:", await response.text());
+        records = [{ error: "Execution failed" }];
+        columns = ["error"];
+      }
+    } catch (err) {
+      console.error("Network error:", err);
+      records = [{ error: "Network error" }];
+      columns = ["error"];
+    }
+
+    const executionTimeMs = performance.now() - startTime;
 
     // Update turn state
     setActiveTurns((prev) =>
@@ -375,9 +463,9 @@ export default function QueryStudioPage() {
               ...t,
               hasRun: true,
               isExecuting: false,
-              records: mockOutput.records,
-              columns: mockOutput.columns,
-              executionTime: mockOutput.executionTime,
+              records: records,
+              columns: columns,
+              executionTime: executionTimeMs,
             }
           : t
       )
@@ -386,9 +474,9 @@ export default function QueryStudioPage() {
     // Automatically open popup modal for fetched output
     setModalOutputData({
       isOpen: true,
-      columns: mockOutput.columns,
-      records: mockOutput.records,
-      executionTime: mockOutput.executionTime,
+      columns: columns,
+      records: records,
+      executionTime: executionTimeMs,
       tableName: dbConfig.databaseName,
     });
 
@@ -400,7 +488,7 @@ export default function QueryStudioPage() {
             ? {
                 ...op,
                 status: "executed",
-                rowCount: mockOutput.records.length,
+                rowCount: records.length,
               }
             : op
         )
@@ -579,6 +667,10 @@ export default function QueryStudioPage() {
                 onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
                 isCentered={true}
+                llmProvider={dbConfig.llmProvider}
+                onLlmChange={(provider) => setDbConfig({ ...dbConfig, llmProvider: provider })}
+                dbType={dbConfig.dbType}
+                onOpenSettings={() => setIsSettingsModalOpen(true)}
               />
             </div>
           ) : (
@@ -629,35 +721,56 @@ export default function QueryStudioPage() {
                       </div>
                     </div>
 
-                    {/* AI Response: Generated Query Code Box */}
-                    <div className="rounded-2xl shadow-xl overflow-hidden border border-white/[0.06]">
-                      <SqlOutput
-                        sql={turn.sql}
-                        graphql={turn.graphql}
-                        onUpdateSql={(newSql) => handleUpdateSql(turn.id, newSql)}
-                        onRunQuery={(q) => handleRunQuery(turn.id, q)}
-                        isGenerating={turn.isGenerating}
-                        isExecuting={turn.isExecuting}
-                        queryFormat={turn.queryFormat}
-                        setQueryFormat={(fmt) => handleSetFormat(turn.id, fmt)}
-                        executionTime={turn.executionTime}
-                        tokens={turn.tokens}
-                        cost={turn.cost}
-                        dialect={dbConfig.dbType === "MongoDB" ? "MongoDB MQL" : `${dbConfig.dbType || "PostgreSQL"} 16`}
-                      />
-                    </div>
+                    {/* AI Response */}
+                    {turn.type === "text" ? (
+                      <div className="flex items-start space-x-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 sm:p-4.5 shadow-sm">
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-zinc-200">SchemaAI</span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal select-text whitespace-pre-wrap">
+                            {turn.textContent}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* AI Response: Generated Query Code Box */}
+                        <div className="rounded-2xl shadow-xl overflow-hidden border border-white/[0.06]">
+                          <SqlOutput
+                            sql={turn.sql}
+                            graphql={turn.graphql}
+                            onUpdateSql={(newSql) => handleUpdateSql(turn.id, newSql)}
+                            onRunQuery={(q) => handleRunQuery(turn.id, q)}
+                            isGenerating={turn.isGenerating}
+                            isExecuting={turn.isExecuting}
+                            queryFormat={turn.queryFormat}
+                            setQueryFormat={(fmt) => handleSetFormat(turn.id, fmt)}
+                            executionTime={turn.executionTime}
+                            tokens={turn.tokens}
+                            cost={turn.cost}
+                            dialect={`${dbConfig.dbType} 16`}
+                          />
+                        </div>
 
-                    {/* Collapsible Output Box: Re-inspect output or open popup without re-executing */}
-                    <div className="pt-0.5">
-                      <OutputSummaryBox
-                        hasRun={turn.hasRun}
-                        onOpenModal={() => handleOpenOutputModal(turn)}
-                        onRunQuery={() => handleRunQuery(turn.id)}
-                        records={turn.records}
-                        columns={turn.columns}
-                        executionTime={turn.executionTime}
-                      />
-                    </div>
+                        {/* Collapsible Output Box: Re-inspect output or open popup without re-executing */}
+                        <div className="pt-0.5">
+                          <OutputSummaryBox
+                            hasRun={turn.hasRun}
+                            onOpenModal={() => handleOpenOutputModal(turn)}
+                            onRunQuery={() => handleRunQuery(turn.id)}
+                            records={turn.records}
+                            columns={turn.columns}
+                            executionTime={turn.executionTime}
+                            maskedColumns={maskedColumns}
+                            activeChart={activeChart}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
 
@@ -674,6 +787,11 @@ export default function QueryStudioPage() {
                     onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
                     isCentered={false}
+                    savedModels={dbConfig.savedModels}
+                    activeModelId={dbConfig.activeModelId}
+                    onModelChange={(modelId) => setDbConfig({ ...dbConfig, activeModelId: modelId })}
+                    dbType={dbConfig.dbType}
+                    onOpenSettings={() => setIsSettingsModalOpen(true)}
                   />
                 </div>
               </div>
@@ -706,28 +824,9 @@ export default function QueryStudioPage() {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onSave={(newConfig: DatabaseConfig) => {
-          setDbConfig((prev) => ({
-            ...prev,
-            dbType: newConfig.dbType,
-            databaseName: newConfig.databaseName,
-            enableQueryGuard: newConfig.enableQueryGuard,
-            llmProvider: newConfig.llmProvider,
-          }));
-          setIsDbConnected(true);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("schemaai_db_connected", "true");
-          }
-        }}
-      />
-
-      {/* Database Connection Required Error Popup Modal */}
-      <DatabaseRequiredModal
-        isOpen={isDbModalOpen}
-        onClose={() => setIsDbModalOpen(false)}
-        onOpenSettings={() => {
-          setIsDbModalOpen(false);
-          setIsSettingsModalOpen(true);
+        initialConfig={dbConfig as any}
+        onSave={(newConfig: any) => {
+          setDbConfig(newConfig);
         }}
         cachedPrompt={currentPrompt}
       />
