@@ -29,6 +29,7 @@ interface SettingsModalProps {
   onClose: () => void;
   onSave: (config: DatabaseConfig) => void;
   initialConfig?: DatabaseConfig;
+  activeTab?: "database" | "ai" | "security";
 }
 
 export interface SavedModel {
@@ -54,10 +55,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onSave,
   initialConfig,
+  activeTab = "database",
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<
     "database" | "ai" | "security"
-  >("database");
+  >(activeTab);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveSettingsTab(activeTab);
+    }
+  }, [isOpen, activeTab]);
 
   const [config, setConfig] = useState<DatabaseConfig>(
     initialConfig || {

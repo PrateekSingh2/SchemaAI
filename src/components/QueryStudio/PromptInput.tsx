@@ -21,7 +21,7 @@ interface PromptInputProps {
   activeModelId?: string;
   onModelChange?: (modelId: string) => void;
   dbType?: string;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (tab?: "database" | "ai" | "security") => void;
 }
 
 export const PromptInput: React.FC<PromptInputProps> = ({
@@ -269,7 +269,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                       value={activeModelId || ""}
                       onChange={(e) => {
                         if (e.target.value === "__add_model__") {
-                          onOpenSettings?.();
+                          onOpenSettings?.("ai");
                         } else {
                           onModelChange?.(e.target.value);
                         }
@@ -287,7 +287,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                     </select>
                   ) : (
                     <button
-                      onClick={onOpenSettings}
+                      onClick={() => onOpenSettings?.("ai")}
                       className="text-amber-400 hover:text-amber-300 text-xs cursor-pointer bg-amber-400/10 px-2 py-0.5 rounded"
                     >
                       Add AI Model
@@ -298,7 +298,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   <div className="hidden sm:flex items-center space-x-1.5 ml-1">
                     <span className="text-zinc-600">•</span>
                     <button
-                      onClick={onOpenSettings}
+                      onClick={() => onOpenSettings?.("database")}
                       className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer text-left"
                     >
                       {dbType} <span className="text-zinc-600">▾</span>
@@ -433,7 +433,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                       value={activeModelId || ""}
                       onChange={(e) => {
                         if (e.target.value === "__add_model__") {
-                          onOpenSettings?.();
+                          onOpenSettings?.("ai");
                         } else {
                           onModelChange?.(e.target.value);
                         }
@@ -451,7 +451,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                     </select>
                   ) : (
                     <button
-                      onClick={onOpenSettings}
+                      onClick={() => onOpenSettings?.("ai")}
                       className="text-amber-400 hover:text-amber-300 text-[11px] cursor-pointer bg-amber-400/10 px-1.5 py-0.5 rounded"
                     >
                       Add AI Model
@@ -462,7 +462,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               <div className="hidden sm:flex items-center space-x-1 ml-0.5">
                 <span className="text-zinc-600 text-[11px]">•</span>
                 <button
-                  onClick={onOpenSettings}
+                  onClick={() => onOpenSettings?.("database")}
                   className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer text-left"
                 >
                   {dbType} <span className="text-zinc-600">▾</span>
