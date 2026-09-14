@@ -121,23 +121,47 @@ cd SchemaAI
 
 ### Step 3: Install Project Dependencies
 
+1. **Frontend Dependencies** (Next.js)
 Install all required packages using `pnpm`:
 
 ```bash
 pnpm install
 ```
 
+2. **Backend Dependencies** (Python/FastAPI)
+Set up a Python virtual environment and install the backend requirements:
+
+```bash
+cd backend
+python -m venv .venv
+# On Windows: .venv\Scripts\activate
+# On Mac/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+```
+
 ---
 
-### Step 4: Run the Development Server
+### Step 4: Run the Development Servers
 
-Start the local Next.js development server:
+You will need two terminal windows to run both the frontend and the backend.
+
+1. **Start the local Next.js frontend server:**
 
 ```bash
 pnpm dev
 ```
-
 Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+
+2. **Start the FastAPI backend server:**
+
+In a new terminal window, activate your virtual environment and start Uvicorn:
+
+```bash
+cd backend
+# Activate your venv if not already active
+uvicorn main:app --reload --port 8000
+```
 
 ---
 
