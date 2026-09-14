@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/Topbar";
 import { MutationWarningModal } from "@/components/MutationWarningModal";
 import { OutputResultsModal } from "@/components/QueryStudio/OutputResultsModal";
 import { SettingsModal, DatabaseConfig } from "@/components/SettingsModal";
+import { DatabaseRequiredModal } from "@/components/QueryStudio/DatabaseRequiredModal";
 import { SqlOutput } from "@/components/QueryStudio/SqlOutput";
 import { PromptInput } from "@/components/QueryStudio/PromptInput";
 import { OutputSummaryBox } from "@/components/QueryStudio/OutputSummaryBox";
@@ -24,8 +26,16 @@ import {
   Sparkles,
   RotateCcw,
   Bot,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import {
+  saveChatSessionToFirestore,
+  getUserChatSessionsFromFirestore,
+  deleteUserChatSessionFromFirestore,
+  clearAllUserChatSessionsFromFirestore,
+} from "@/lib/chatService";
 
 const INITIAL_TURNS: ChatMessageTurn[] = [
   {
@@ -72,9 +82,42 @@ const INITIAL_OPERATIONS: ChatOperation[] = [
 ];
 
 export default function QueryStudioPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [isMutationModalOpen, setIsMutationModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Database Connection State (Must be configured before executing prompts)
+  const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkDbStatus = () => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("schemaai_db_connected");
+        setIsDbConnected(stored === "true");
+      }
+    };
+    checkDbStatus();
+
+    window.addEventListener("schemaai_db_changed", checkDbStatus);
+    return () => window.removeEventListener("schemaai_db_changed", checkDbStatus);
+  }, []);
+
+  // Redirect unauthenticated visitors to /login immediately
+  useEffect(() => {
+    if (!loading && !user) {
+      try {
+        const cached = localStorage.getItem("schemaai_user_session");
+        if (!cached) {
+          router.replace("/login");
+        }
+      } catch (e) {
+        router.replace("/login");
+      }
+    }
+  }, [user, loading, router]);
 
   // Active Output Results Modal State
   const [modalOutputData, setModalOutputData] = useState<{
@@ -98,8 +141,25 @@ export default function QueryStudioPage() {
     llmProvider: "openai",
   });
 
-  // Query Studio state
-  const [currentPrompt, setCurrentPrompt] = useState("");
+  // Query Studio state with safe persistent cache so prompt is never lost
+  const [currentPrompt, setCurrentPrompt] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = sessionStorage.getItem("schemaai_cached_prompt");
+      if (cached) {
+        setCurrentPrompt(cached);
+      }
+    }
+  }, []);
+
+  const handlePromptChange = (val: string) => {
+    setCurrentPrompt(val);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("schemaai_cached_prompt", val);
+    }
+  };
+
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Chat conversation turns:
@@ -108,8 +168,27 @@ export default function QueryStudioPage() {
   const [activeTurns, setActiveTurns] = useState<ChatMessageTurn[]>([]);
   const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
 
-  // Operations / Chat History
+  // Operations / Chat History (synced with Firestore for logged-in user)
   const [operations, setOperations] = useState<ChatOperation[]>(INITIAL_OPERATIONS);
+
+  // Load chat history from Firestore when authenticated
+  useEffect(() => {
+    async function loadUserChats() {
+      if (user?.uid) {
+        try {
+          const remoteChats = await getUserChatSessionsFromFirestore(user.uid);
+          if (remoteChats && remoteChats.length > 0) {
+            setOperations(remoteChats);
+          }
+        } catch (err) {
+          console.warn("Could not load user chats:", err);
+        }
+      } else {
+        setOperations(INITIAL_OPERATIONS);
+      }
+    }
+    loadUserChats();
+  }, [user]);
 
   // Pending mutation execution state
   const [pendingMutation, setPendingMutation] = useState<{
@@ -131,13 +210,45 @@ export default function QueryStudioPage() {
     }
   }, [activeTurns.length, isGenerating]);
 
+  // If user is not authenticated or auth state is loading, show loading screen
+  if (loading || !user) {
+    return (
+      <div className="h-screen w-screen bg-[#0e0e11] flex items-center justify-center select-none">
+        <div className="flex flex-col items-center space-y-3 animate-in fade-in duration-300">
+          <div className="w-11 h-11 rounded-2xl bg-[#141418] border border-white/[0.1] flex items-center justify-center shadow-2xl">
+            <Database className="w-5 h-5 text-[#38bdf8] animate-pulse" />
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-zinc-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+            <span>Loading SchemaAI session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 1. Submit a prompt:
-  // If no turns yet, creates the first turn and starts the chat session.
-  // If turns already exist, appends a new turn into the SAME chat conversation!
+  // Checks for active database connection first!
+  // If not connected, keeps prompt safe in cache and shows Database Required Modal!
   const handleGenerateQuery = async (promptText: string) => {
     if (!promptText.trim()) return;
 
+    // Check if database is configured/connected
+    if (!isDbConnected) {
+      // Keep prompt safely in state and sessionStorage so user never loses work!
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("schemaai_cached_prompt", promptText);
+      }
+      setCurrentPrompt(promptText);
+      setIsDbModalOpen(true);
+      return;
+    }
+
+    // Clear prompt and cache upon successful execution
     setCurrentPrompt("");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("schemaai_cached_prompt");
+    }
     setIsGenerating(true);
 
     const turnId = `turn-${Date.now()}`;
@@ -184,7 +295,7 @@ export default function QueryStudioPage() {
     );
     setIsGenerating(false);
 
-    // Update or create chat operation in left panel
+    // Update or create chat operation in left panel & Firestore
     if (!activeOperationId) {
       const newOpId = `op-${Date.now()}`;
       const newOp: ChatOperation = {
@@ -203,17 +314,25 @@ export default function QueryStudioPage() {
       };
       setOperations((prev) => [newOp, ...prev]);
       setActiveOperationId(newOpId);
+      if (user?.uid) {
+        saveChatSessionToFirestore(user.uid, newOp);
+      }
     } else {
       setOperations((prev) =>
-        prev.map((op) =>
-          op.id === activeOperationId
-            ? {
-                ...op,
-                sql: mockOutput.sql,
-                turns: [...(op.turns || []), completedTurn],
-              }
-            : op
-        )
+        prev.map((op) => {
+          if (op.id === activeOperationId) {
+            const updatedOp: ChatOperation = {
+              ...op,
+              sql: mockOutput.sql,
+              turns: [...(op.turns || []), completedTurn],
+            };
+            if (user?.uid) {
+              saveChatSessionToFirestore(user.uid, updatedOp);
+            }
+            return updatedOp;
+          }
+          return op;
+        })
       );
     }
   };
@@ -351,6 +470,9 @@ export default function QueryStudioPage() {
   // 8. Delete individual operation
   const handleDeleteOperation = (id: string) => {
     setOperations((prev) => prev.filter((op) => op.id !== id));
+    if (user?.uid) {
+      deleteUserChatSessionFromFirestore(user.uid, id);
+    }
     if (activeOperationId === id) {
       handleNewChat();
     }
@@ -358,6 +480,12 @@ export default function QueryStudioPage() {
 
   // 9. Clear all history
   const handleClearHistory = () => {
+    if (user?.uid) {
+      clearAllUserChatSessionsFromFirestore(
+        user.uid,
+        operations.map((o) => o.id)
+      );
+    }
     setOperations([]);
     handleNewChat();
   };
@@ -407,9 +535,16 @@ export default function QueryStudioPage() {
     <div className="h-screen-dvh w-screen overflow-hidden bg-[#0e0e11] text-[#f4f4f5] flex flex-col font-sans select-none antialiased">
       {/* Top Navbar */}
       <Topbar
-        dbName={dbConfig.databaseName}
-        dbType={dbConfig.dbType}
-        isConnected={true}
+        dbName={isDbConnected ? dbConfig.databaseName : "Not Connected"}
+        dbType={isDbConnected ? dbConfig.dbType : "Database"}
+        isConnected={isDbConnected}
+        onDisconnect={() => {
+          setIsDbConnected(false);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("schemaai_db_connected", "false");
+          }
+        }}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       {/* Main Container below Navbar: Left Panel + Unified Center Workspace */}
@@ -437,7 +572,7 @@ export default function QueryStudioPage() {
             <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
               <PromptInput
                 value={currentPrompt}
-                onChange={setCurrentPrompt}
+                onChange={handlePromptChange}
                 onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
                 isCentered={true}
@@ -532,7 +667,7 @@ export default function QueryStudioPage() {
                 <div className="max-w-4xl mx-auto w-full">
                   <PromptInput
                     value={currentPrompt}
-                    onChange={setCurrentPrompt}
+                    onChange={handlePromptChange}
                     onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
                     isCentered={false}
@@ -576,7 +711,22 @@ export default function QueryStudioPage() {
             enableQueryGuard: newConfig.enableQueryGuard,
             llmProvider: newConfig.llmProvider,
           }));
+          setIsDbConnected(true);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("schemaai_db_connected", "true");
+          }
         }}
+      />
+
+      {/* Database Connection Required Error Popup Modal */}
+      <DatabaseRequiredModal
+        isOpen={isDbModalOpen}
+        onClose={() => setIsDbModalOpen(false)}
+        onOpenSettings={() => {
+          setIsDbModalOpen(false);
+          setIsSettingsModalOpen(true);
+        }}
+        cachedPrompt={currentPrompt}
       />
     </div>
   );

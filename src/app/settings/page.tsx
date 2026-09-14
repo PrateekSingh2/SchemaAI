@@ -57,29 +57,84 @@ export default function SettingsPage() {
     setIsTesting(true);
     setTestResult({ status: "idle", message: "" });
 
-    await new Promise((resolve) => setTimeout(resolve, 950));
-
-    if (config.connectionUri.trim().length > 0) {
-      setTestResult({
-        status: "success",
-        message: `Successfully connected to ${config.dbType} [${config.databaseName}] with introspect privileges.`,
-        latencyMs: 27,
+    try {
+      const res = await fetch("/api/database/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dbType: config.dbType,
+          connectionMode: "uri",
+          connectionUri: config.connectionUri,
+          databaseName: config.databaseName,
+          username: config.username,
+          password: config.password,
+        }),
       });
-    } else {
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestResult({
+          status: "success",
+          message: data.message,
+          latencyMs: data.latencyMs,
+        });
+      } else {
+        setTestResult({
+          status: "error",
+          message: data.message || "Unable to establish database handshake.",
+        });
+      }
+    } catch (err: any) {
       setTestResult({
         status: "error",
-        message: "Unable to establish handshake. Please check connection string and credentials.",
+        message: err?.message || "Failed to reach serverless API endpoint.",
       });
+    } finally {
+      setIsTesting(false);
     }
-    setIsTesting(false);
   };
 
   const handleSaveAndIntrospect = async () => {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setIsSaving(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+    try {
+      const res = await fetch("/api/database/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dbType: config.dbType,
+          connectionMode: "uri",
+          connectionUri: config.connectionUri,
+          databaseName: config.databaseName,
+          username: config.username,
+          password: config.password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("schemaai_db_config", JSON.stringify(config));
+          localStorage.setItem("schemaai_db_connected", "true");
+          window.dispatchEvent(new Event("schemaai_db_changed"));
+        }
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2500);
+      } else {
+        setTestResult({
+          status: "error",
+          message: data.message || "Cannot save: handshake test failed.",
+        });
+      }
+    } catch (err) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("schemaai_db_config", JSON.stringify(config));
+        localStorage.setItem("schemaai_db_connected", "true");
+        window.dispatchEvent(new Event("schemaai_db_changed"));
+      }
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
