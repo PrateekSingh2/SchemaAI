@@ -24,6 +24,8 @@ interface OutputSummaryBoxProps {
   records: Array<Record<string, unknown>>;
   columns: string[];
   executionTime?: number;
+  maskedColumns?: string[];
+  activeChart?: { type: string; key: string } | null;
 }
 
 export const OutputSummaryBox: React.FC<OutputSummaryBoxProps> = ({
@@ -32,7 +34,9 @@ export const OutputSummaryBox: React.FC<OutputSummaryBoxProps> = ({
   onRunQuery,
   records,
   columns,
-  executionTime = 32,
+  executionTime = 0,
+  maskedColumns = [],
+  activeChart = null,
 }) => {
   const [isInlineExpanded, setIsInlineExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -146,11 +150,24 @@ export const OutputSummaryBox: React.FC<OutputSummaryBoxProps> = ({
       {/* Inline Expanded Table View */}
       {isInlineExpanded && (
         <div className="h-[280px] w-full overflow-hidden border-t border-[#222226] animate-in fade-in duration-150">
-          <RecordsTable
-            columns={columns}
-            records={records}
-            hasRun={true}
-          />
+          {activeChart ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#0c0c0f] text-zinc-400">
+              <div className="w-16 h-16 mb-4 opacity-50 bg-gradient-to-t from-emerald-500/20 to-emerald-500 flex items-end justify-between p-2 rounded">
+                 <div className="w-2 h-6 bg-emerald-400 rounded-t-sm"></div>
+                 <div className="w-2 h-10 bg-emerald-400 rounded-t-sm"></div>
+                 <div className="w-2 h-4 bg-emerald-400 rounded-t-sm"></div>
+              </div>
+              <p className="font-semibold text-zinc-300">Placeholder for {activeChart.type} Chart</p>
+              <p className="text-xs">Visualizing: {activeChart.key}</p>
+            </div>
+          ) : (
+            <RecordsTable
+              columns={columns}
+              records={records}
+              hasRun={true}
+              maskedColumns={maskedColumns}
+            />
+          )}
         </div>
       )}
     </div>

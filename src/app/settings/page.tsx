@@ -19,7 +19,12 @@ import {
   Check,
   CheckCheck,
   Server,
+  LayoutDashboard,
+  UploadCloud,
+  FileCheck,
+  XCircle,
 } from "lucide-react";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import { DatabaseConfig } from "@/components/SettingsModal";
 
@@ -39,6 +44,10 @@ export default function SettingsPage() {
     llmApiKey: "sk-proj-••••••••••••••••••••••••••••••••",
     enableQueryGuard: true,
   });
+
+  const [connectionMode, setConnectionMode] = useState<"remote" | "local">("remote");
+  const [localFile, setLocalFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -213,6 +222,28 @@ export default function SettingsPage() {
           {/* TAB 1: DATABASE */}
           {activeSettingsTab === "database" && (
             <div className="space-y-5 animate-in fade-in duration-150">
+              {/* Connection Mode Toggle */}
+              <div className="flex bg-[#141210] p-1 rounded-xl border border-[#292524]">
+                <button
+                  onClick={() => setConnectionMode("remote")}
+                  className={cn(
+                    "flex-1 py-1.5 text-xs font-medium rounded-lg transition-all",
+                    connectionMode === "remote" ? "bg-[#3ecf8e]/10 text-[#3ecf8e] shadow-sm" : "text-stone-400 hover:text-stone-200"
+                  )}
+                >
+                  Cloud / Remote
+                </button>
+                <button
+                  onClick={() => setConnectionMode("local")}
+                  className={cn(
+                    "flex-1 py-1.5 text-xs font-medium rounded-lg transition-all",
+                    connectionMode === "local" ? "bg-[#3ecf8e]/10 text-[#3ecf8e] shadow-sm" : "text-stone-400 hover:text-stone-200"
+                  )}
+                >
+                  Local / On-Premise
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-stone-300">
@@ -237,6 +268,7 @@ export default function SettingsPage() {
                     <option value="MongoDB">MongoDB</option>
                     <option value="Redis">Redis</option>
                     <option value="SQLite">SQLite Cloud</option>
+                    <option value="Local SQLite File">Local SQLite File</option>
                     <option value="Oracle">Oracle Database</option>
                     <option value="SQL Server">Microsoft SQL Server</option>
                     <option value="Snowflake">Snowflake</option>
@@ -266,31 +298,90 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-[#3ecf8e]" />
-                    <span>Connection URI</span>
-                  </label>
-                  <span className="text-[10px] text-[#3ecf8e] font-mono">
-                    SSL Required
-                  </span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={config.connectionUri}
-                    onChange={(e) =>
-                      setConfig({ ...config, connectionUri: e.target.value })
+              {connectionMode === "local" && config.dbType === "Local SQLite File" ? (
+                <div 
+                  className={cn(
+                    "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-3 transition-all cursor-pointer group",
+                    localFile ? "border-[#3ecf8e]/50 bg-[#3ecf8e]/5" : "border-[#292524] hover:bg-[#141210]/50 hover:border-[#3ecf8e]/50"
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      setLocalFile(e.dataTransfer.files[0]);
                     }
-                    placeholder="postgresql://user:password@host:5432/db"
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] font-mono shadow-inner"
+                  }}
+                >
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    className="hidden" 
+                    accept=".sqlite,.db,.sqlite3"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setLocalFile(e.target.files[0]);
+                      }
+                    }}
                   />
-                  <Lock className="w-4 h-4 text-stone-500 absolute right-3.5 top-3" />
+                  {localFile ? (
+                    <>
+                      <div className="p-3 rounded-full bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 transition-all">
+                        <FileCheck className="w-6 h-6 text-[#3ecf8e]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-stone-200">{localFile.name}</p>
+                        <p className="text-xs text-[#3ecf8e] mt-1">Ready to connect</p>
+                      </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setLocalFile(null); }}
+                        className="mt-2 text-xs text-rose-400 hover:text-rose-300 flex items-center space-x-1"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Remove file</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-3 rounded-full bg-[#141210] border border-[#292524] group-hover:scale-110 group-hover:bg-[#3ecf8e]/10 transition-all">
+                        <UploadCloud className="w-6 h-6 text-[#3ecf8e]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-stone-200">Drag & drop your .sqlite file</p>
+                        <p className="text-xs text-stone-500 mt-1">or click to browse local files</p>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-[#3ecf8e]" />
+                        <span>Connection URI</span>
+                      </label>
+                      {connectionMode === "remote" && (
+                        <span className="text-[10px] text-[#3ecf8e] font-mono">
+                          SSL Required
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={config.connectionUri}
+                        onChange={(e) =>
+                          setConfig({ ...config, connectionUri: e.target.value })
+                        }
+                        placeholder={connectionMode === "local" ? "postgresql://127.0.0.1:5432/my_db" : "postgresql://user:password@host:5432/db"}
+                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] font-mono shadow-inner"
+                      />
+                      <Lock className="w-4 h-4 text-stone-500 absolute right-3.5 top-3" />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-5", connectionMode === "local" && config.dbType === "Local SQLite File" && "hidden")}>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-stone-300 flex items-center gap-1">
                     <User className="w-3.5 h-3.5 text-stone-400" /> Username
@@ -334,6 +425,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+              </>
+              )}
             </div>
           )}
 
@@ -350,13 +443,14 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setConfig({
                         ...config,
-                        llmProvider: e.target.value as "openai" | "anthropic" | "custom",
+                        llmProvider: e.target.value,
                       })
                     }
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#141210] border border-[#292524] text-sm text-stone-200 focus:outline-none focus:border-[#3ecf8e]"
                   >
                     <option value="openai">OpenAI GPT-4o (Recommended)</option>
                     <option value="anthropic">Anthropic Claude 3.5 Sonnet</option>
+                    <option value="nvidia">NVIDIA NIM (Llama 3, Nemotron, etc)</option>
                     <option value="custom">Self-Hosted DeepSeek-V3 / Ollama</option>
                   </select>
                 </div>
@@ -372,7 +466,7 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setConfig({ ...config, llmApiKey: e.target.value })
                       }
-                      placeholder="sk-proj-..."
+                      placeholder={config.llmProvider === "nvidia" ? "nvapi-..." : "sk-proj-..."}
                       className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#141210] border border-[#292524] text-xs text-stone-200 focus:outline-none focus:border-[#3ecf8e] font-mono shadow-inner"
                     />
                     <button
@@ -387,6 +481,11 @@ export default function SettingsPage() {
                       )}
                     </button>
                   </div>
+                  {config.llmProvider === "nvidia" && (
+                    <p className="text-[10px] text-zinc-500 mt-2">
+                      Get your API key at <a href="https://build.nvidia.com/models?filters=nimType%3Anim_type_preview&orderBy=weightPopular%3ADESC" target="_blank" rel="noopener noreferrer" className="text-[#3ecf8e] hover:underline">build.nvidia.com</a>
+                    </p>
+                  )}
                 </div>
               </div>
 

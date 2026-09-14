@@ -17,8 +17,11 @@ interface PromptInputProps {
   value?: string;
   onChange?: (val: string) => void;
   isCentered?: boolean;
-  llmProvider?: string;
-  onLlmChange?: (provider: string) => void;
+  savedModels?: { id: string; provider: string; name: string; apiKey: string }[];
+  activeModelId?: string;
+  onModelChange?: (modelId: string) => void;
+  dbType?: string;
+  onOpenSettings?: () => void;
 }
 
 export const PromptInput: React.FC<PromptInputProps> = ({
@@ -27,8 +30,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   value,
   onChange,
   isCentered = false,
-  llmProvider,
-  onLlmChange,
+  savedModels = [],
+  activeModelId,
+  onModelChange,
+  dbType,
+  onOpenSettings,
 }) => {
   const [internalPrompt, setInternalPrompt] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -256,21 +262,41 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   <span>↵</span>
                   <span>Return</span>
                 </kbd>
-                {llmProvider && onLlmChange ? (
+                <div className="hidden sm:flex items-center space-x-1.5 ml-1">
+                  <span className="text-zinc-600">•</span>
+                  {savedModels.length > 0 ? (
+                    <select
+                      value={activeModelId || ""}
+                      onChange={(e) => onModelChange?.(e.target.value)}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer max-w-[150px] truncate"
+                    >
+                      {savedModels.map((m) => (
+                        <option key={m.id} value={m.id} className="bg-[#141418] text-zinc-200">
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <button
+                      onClick={onOpenSettings}
+                      className="text-amber-400 hover:text-amber-300 text-xs cursor-pointer bg-amber-400/10 px-2 py-0.5 rounded"
+                    >
+                      Add AI Model
+                    </button>
+                  )}
+                </div>
+                {dbType && onOpenSettings && (
                   <div className="hidden sm:flex items-center space-x-1.5 ml-1">
                     <span className="text-zinc-600">•</span>
-                    <select
-                      value={llmProvider}
-                      onChange={(e) => onLlmChange(e.target.value)}
-                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer"
+                    <button
+                      onClick={onOpenSettings}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer text-left"
                     >
-                      <option value="openai" className="bg-[#141418] text-zinc-200">GPT-4o</option>
-                      <option value="anthropic" className="bg-[#141418] text-zinc-200">Claude 3.5 Sonnet</option>
-                      <option value="gemini" className="bg-[#141418] text-zinc-200">Gemini 1.5 Pro</option>
-                      <option value="llama" className="bg-[#141418] text-zinc-200">Llama 3 70B</option>
-                    </select>
+                      {dbType} <span className="text-zinc-600">▾</span>
+                    </button>
                   </div>
-                ) : (
+                )}
+                {(!activeModelId || !dbType) && (
                   <span className="text-zinc-500 text-xs hidden sm:inline">• Natural language to SQL</span>
                 )}
               </div>
@@ -391,21 +417,41 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               <span>↵</span>
                   <span>Return</span>
             </kbd>
-            {llmProvider && onLlmChange ? (
+                <div className="hidden sm:flex items-center space-x-1 ml-0.5">
+                  <span className="text-zinc-600 text-[11px]">•</span>
+                  {savedModels.length > 0 ? (
+                    <select
+                      value={activeModelId || ""}
+                      onChange={(e) => onModelChange?.(e.target.value)}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer max-w-[120px] truncate"
+                    >
+                      {savedModels.map((m) => (
+                        <option key={m.id} value={m.id} className="bg-[#141418] text-zinc-200">
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <button
+                      onClick={onOpenSettings}
+                      className="text-amber-400 hover:text-amber-300 text-[11px] cursor-pointer bg-amber-400/10 px-1.5 py-0.5 rounded"
+                    >
+                      Add AI Model
+                    </button>
+                  )}
+                </div>
+            {dbType && onOpenSettings && (
               <div className="hidden sm:flex items-center space-x-1 ml-0.5">
                 <span className="text-zinc-600 text-[11px]">•</span>
-                <select
-                  value={llmProvider}
-                  onChange={(e) => onLlmChange(e.target.value)}
-                  className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer"
+                <button
+                  onClick={onOpenSettings}
+                  className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer text-left"
                 >
-                  <option value="openai" className="bg-[#141418] text-zinc-200">GPT-4o</option>
-                  <option value="anthropic" className="bg-[#141418] text-zinc-200">Claude 3.5 Sonnet</option>
-                  <option value="gemini" className="bg-[#141418] text-zinc-200">Gemini 1.5 Pro</option>
-                  <option value="llama" className="bg-[#141418] text-zinc-200">Llama 3 70B</option>
-                </select>
+                  {dbType} <span className="text-zinc-600">▾</span>
+                </button>
               </div>
-            ) : (
+            )}
+            {(!activeModelId || !dbType) && (
               <span className="text-zinc-500 text-[11px] hidden sm:inline">Send prompt</span>
             )}
           </div>

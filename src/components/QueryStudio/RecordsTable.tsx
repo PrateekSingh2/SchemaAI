@@ -24,6 +24,7 @@ interface RecordsTableProps {
   onToggleMaximize?: () => void;
   onRunQuery?: () => void;
   hasRun?: boolean;
+  maskedColumns?: string[];
 }
 
 export const RecordsTable: React.FC<RecordsTableProps> = ({
@@ -34,6 +35,7 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
   onToggleMaximize,
   onRunQuery,
   hasRun = true,
+  maskedColumns = [],
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
@@ -233,16 +235,18 @@ export const RecordsTable: React.FC<RecordsTableProps> = ({
                     {rowIdx + 1}
                   </td>
                   {columns.map((col) => {
-                    const cellValue = row[col];
-                    const isNum = typeof cellValue === "number";
-                    const isBool = typeof cellValue === "boolean";
-                    const isStatus = col.toLowerCase().includes("status");
+                    const isMasked = maskedColumns.includes(col);
+                    const cellValue = isMasked ? "********" : row[col];
+                    const isNum = !isMasked && typeof cellValue === "number";
+                    const isBool = !isMasked && typeof cellValue === "boolean";
+                    const isStatus = !isMasked && col.toLowerCase().includes("status");
 
                     return (
                       <td
                         key={col}
                         className={cn(
                           "px-3.5 py-2 text-zinc-200 border-r border-[#222226] truncate max-w-[240px] whitespace-nowrap",
+                          isMasked && "text-zinc-500 font-mono tracking-widest",
                           isNum && "text-sky-300 font-medium",
                           isBool && (cellValue ? "text-emerald-400 font-medium" : "text-rose-400 font-medium")
                         )}

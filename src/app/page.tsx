@@ -93,9 +93,13 @@ export default function QueryStudioPage() {
   // Database config
   const [dbConfig, setDbConfig] = useState({
     dbType: "PostgreSQL",
+    connectionUri: "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
+    username: "postgres.admin",
+    password: "••••••••••••••••",
     databaseName: "production_core_db",
+    savedModels: [] as { id: string; provider: string; name: string; apiKey: string }[],
+    activeModelId: "",
     enableQueryGuard: true,
-    llmProvider: "openai",
   });
 
   // Query Studio state
@@ -119,6 +123,10 @@ export default function QueryStudioPage() {
     targetTable?: string;
     mutationType?: string;
   } | null>(null);
+
+  // Agentic UI State
+  const [maskedColumns, setMaskedColumns] = useState<string[]>([]);
+  const [activeChart, setActiveChart] = useState<{ type: string; key: string } | null>(null);
 
   // Scroll ref for single unified scrollbar
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -159,23 +167,82 @@ export default function QueryStudioPage() {
     // Append turn to the current conversation
     setActiveTurns((prev) => [...prev, newTurnPlaceholder]);
 
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    let generatedSql = "";
+    let generatedText = "";
+    let responseType: "sql" | "text" = "sql";
+    const startTime = performance.now();
 
+    try {
+      const activeModel = dbConfig.savedModels.find(m => m.id === dbConfig.activeModelId);
+      const provider = activeModel ? activeModel.provider : "openai";
+      const apiKey = activeModel ? activeModel.apiKey : "";
+
+      const response = await fetch("/api/generate-sql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: promptText,
+          llmProvider: provider,
+          llmApiKey: apiKey,
+          dbType: dbConfig.dbType,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        responseType = data.type || "sql";
+        
+        if (responseType === "tool_call" && data.toolCall) {
+          const { tool, args } = data.toolCall;
+          if (tool === "apply_data_masking") {
+            setMaskedColumns(args.columns || []);
+            generatedText = `Applied data masking to columns: ${(args.columns || []).join(", ")}`;
+            responseType = "text";
+          } else if (tool === "render_visualization") {
+            setActiveChart({ type: args.chart_type, key: args.data_key });
+            generatedText = `Rendering a ${args.chart_type} chart for column: ${args.data_key}`;
+            responseType = "text";
+          } else if (tool === "generate_sql") {
+            generatedSql = args.query;
+            responseType = "sql";
+          } else {
+            generatedText = `Executed unknown tool: ${tool}`;
+            responseType = "text";
+          }
+        } else if (responseType === "sql") {
+          generatedSql = data.content || "-- No SQL generated";
+        } else {
+          generatedText = data.content || "";
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        responseType = "text";
+        generatedText = `⚠️ Error: ${errorData.error || response.statusText}`;
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+      responseType = "text";
+      generatedText = `⚠️ Network or Server Error: ${String(error)}`;
+    }
+
+    const executionTimeMs = performance.now() - startTime;
     const mockOutput = generateMockResult(promptText, "sql");
 
     const completedTurn: ChatMessageTurn = {
       id: turnId,
       userPrompt: promptText,
       timestamp: "Just now",
-      sql: mockOutput.sql,
+      sql: generatedSql, 
       graphql: mockOutput.graphql,
       queryFormat: "sql",
+      type: responseType,
+      textContent: generatedText,
       hasRun: false,
-      records: mockOutput.records,
+      records: mockOutput.records, 
       columns: mockOutput.columns,
-      executionTime: mockOutput.executionTime,
-      tokens: mockOutput.tokens,
-      cost: mockOutput.cost,
+      executionTime: executionTimeMs,
+      tokens: responseType === "sql" ? generatedSql.length / 4 : generatedText.length / 4, 
+      cost: "$0.0001",
       isGenerating: false,
     };
 
@@ -190,10 +257,12 @@ export default function QueryStudioPage() {
       const newOp: ChatOperation = {
         id: newOpId,
         prompt: promptText,
-        sql: mockOutput.sql,
+        sql: generatedSql,
         graphql: mockOutput.graphql,
         timestamp: "Just now",
         format: "sql",
+        type: responseType,
+        textContent: generatedText,
         status: "generated",
         rowCount: mockOutput.records.length,
         records: mockOutput.records,
@@ -201,15 +270,18 @@ export default function QueryStudioPage() {
         executionTime: mockOutput.executionTime,
         turns: [completedTurn],
       };
-      setOperations((prev) => [newOp, ...prev]);
-      setActiveOperationId(newOpId);
+      // Only push SQL operations to the sidebar to keep it clean from text chat
+      if (responseType === "sql") {
+        setOperations((prev) => [newOp, ...prev]);
+        setActiveOperationId(newOpId);
+      }
     } else {
       setOperations((prev) =>
         prev.map((op) =>
           op.id === activeOperationId
             ? {
                 ...op,
-                sql: mockOutput.sql,
+                sql: responseType === "sql" ? generatedSql : op.sql,
                 turns: [...(op.turns || []), completedTurn],
               }
             : op
@@ -443,6 +515,8 @@ export default function QueryStudioPage() {
                 isCentered={true}
                 llmProvider={dbConfig.llmProvider}
                 onLlmChange={(provider) => setDbConfig({ ...dbConfig, llmProvider: provider })}
+                dbType={dbConfig.dbType}
+                onOpenSettings={() => setIsSettingsModalOpen(true)}
               />
             </div>
           ) : (
@@ -493,35 +567,56 @@ export default function QueryStudioPage() {
                       </div>
                     </div>
 
-                    {/* AI Response: Generated Query Code Box */}
-                    <div className="rounded-2xl shadow-xl overflow-hidden border border-white/[0.06]">
-                      <SqlOutput
-                        sql={turn.sql}
-                        graphql={turn.graphql}
-                        onUpdateSql={(newSql) => handleUpdateSql(turn.id, newSql)}
-                        onRunQuery={(q) => handleRunQuery(turn.id, q)}
-                        isGenerating={turn.isGenerating}
-                        isExecuting={turn.isExecuting}
-                        queryFormat={turn.queryFormat}
-                        setQueryFormat={(fmt) => handleSetFormat(turn.id, fmt)}
-                        executionTime={turn.executionTime}
-                        tokens={turn.tokens}
-                        cost={turn.cost}
-                        dialect={`${dbConfig.dbType} 16`}
-                      />
-                    </div>
+                    {/* AI Response */}
+                    {turn.type === "text" ? (
+                      <div className="flex items-start space-x-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 sm:p-4.5 shadow-sm">
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-zinc-200">SchemaAI</span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal select-text whitespace-pre-wrap">
+                            {turn.textContent}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* AI Response: Generated Query Code Box */}
+                        <div className="rounded-2xl shadow-xl overflow-hidden border border-white/[0.06]">
+                          <SqlOutput
+                            sql={turn.sql}
+                            graphql={turn.graphql}
+                            onUpdateSql={(newSql) => handleUpdateSql(turn.id, newSql)}
+                            onRunQuery={(q) => handleRunQuery(turn.id, q)}
+                            isGenerating={turn.isGenerating}
+                            isExecuting={turn.isExecuting}
+                            queryFormat={turn.queryFormat}
+                            setQueryFormat={(fmt) => handleSetFormat(turn.id, fmt)}
+                            executionTime={turn.executionTime}
+                            tokens={turn.tokens}
+                            cost={turn.cost}
+                            dialect={`${dbConfig.dbType} 16`}
+                          />
+                        </div>
 
-                    {/* Collapsible Output Box: Re-inspect output or open popup without re-executing */}
-                    <div className="pt-0.5">
-                      <OutputSummaryBox
-                        hasRun={turn.hasRun}
-                        onOpenModal={() => handleOpenOutputModal(turn)}
-                        onRunQuery={() => handleRunQuery(turn.id)}
-                        records={turn.records}
-                        columns={turn.columns}
-                        executionTime={turn.executionTime}
-                      />
-                    </div>
+                        {/* Collapsible Output Box: Re-inspect output or open popup without re-executing */}
+                        <div className="pt-0.5">
+                          <OutputSummaryBox
+                            hasRun={turn.hasRun}
+                            onOpenModal={() => handleOpenOutputModal(turn)}
+                            onRunQuery={() => handleRunQuery(turn.id)}
+                            records={turn.records}
+                            columns={turn.columns}
+                            executionTime={turn.executionTime}
+                            maskedColumns={maskedColumns}
+                            activeChart={activeChart}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
 
@@ -538,8 +633,11 @@ export default function QueryStudioPage() {
                     onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
                     isCentered={false}
-                    llmProvider={dbConfig.llmProvider}
-                    onLlmChange={(provider) => setDbConfig({ ...dbConfig, llmProvider: provider })}
+                    savedModels={dbConfig.savedModels}
+                    activeModelId={dbConfig.activeModelId}
+                    onModelChange={(modelId) => setDbConfig({ ...dbConfig, activeModelId: modelId })}
+                    dbType={dbConfig.dbType}
+                    onOpenSettings={() => setIsSettingsModalOpen(true)}
                   />
                 </div>
               </div>
@@ -572,14 +670,9 @@ export default function QueryStudioPage() {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onSave={(newConfig: DatabaseConfig) => {
-          setDbConfig((prev) => ({
-            ...prev,
-            dbType: newConfig.dbType,
-            databaseName: newConfig.databaseName,
-            enableQueryGuard: newConfig.enableQueryGuard,
-            llmProvider: newConfig.llmProvider,
-          }));
+        initialConfig={dbConfig as any}
+        onSave={(newConfig: any) => {
+          setDbConfig(newConfig);
         }}
       />
     </div>
