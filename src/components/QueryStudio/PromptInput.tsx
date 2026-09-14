@@ -17,6 +17,8 @@ interface PromptInputProps {
   value?: string;
   onChange?: (val: string) => void;
   isCentered?: boolean;
+  llmProvider?: string;
+  onLlmChange?: (provider: string) => void;
 }
 
 export const PromptInput: React.FC<PromptInputProps> = ({
@@ -25,6 +27,8 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   value,
   onChange,
   isCentered = false,
+  llmProvider,
+  onLlmChange,
 }) => {
   const [internalPrompt, setInternalPrompt] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -252,7 +256,23 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   <span>↵</span>
                   <span>Return</span>
                 </kbd>
-                <span className="text-zinc-500 text-xs hidden sm:inline">• Natural language to SQL</span>
+                {llmProvider && onLlmChange ? (
+                  <div className="hidden sm:flex items-center space-x-1.5 ml-1">
+                    <span className="text-zinc-600">•</span>
+                    <select
+                      value={llmProvider}
+                      onChange={(e) => onLlmChange(e.target.value)}
+                      className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer"
+                    >
+                      <option value="openai" className="bg-[#141418] text-zinc-200">GPT-4o</option>
+                      <option value="anthropic" className="bg-[#141418] text-zinc-200">Claude 3.5 Sonnet</option>
+                      <option value="gemini" className="bg-[#141418] text-zinc-200">Gemini 1.5 Pro</option>
+                      <option value="llama" className="bg-[#141418] text-zinc-200">Llama 3 70B</option>
+                    </select>
+                  </div>
+                ) : (
+                  <span className="text-zinc-500 text-xs hidden sm:inline">• Natural language to SQL</span>
+                )}
               </div>
             )}
 
@@ -369,9 +389,25 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           <div className="flex items-center space-x-2 text-zinc-500 select-none">
             <kbd className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-zinc-300 font-mono text-[10px] shadow-sm">
               <span>↵</span>
-              <span>Return</span>
+                  <span>Return</span>
             </kbd>
-            <span className="text-zinc-500 text-[11px] hidden sm:inline">Send prompt</span>
+            {llmProvider && onLlmChange ? (
+              <div className="hidden sm:flex items-center space-x-1 ml-0.5">
+                <span className="text-zinc-600 text-[11px]">•</span>
+                <select
+                  value={llmProvider}
+                  onChange={(e) => onLlmChange(e.target.value)}
+                  className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer"
+                >
+                  <option value="openai" className="bg-[#141418] text-zinc-200">GPT-4o</option>
+                  <option value="anthropic" className="bg-[#141418] text-zinc-200">Claude 3.5 Sonnet</option>
+                  <option value="gemini" className="bg-[#141418] text-zinc-200">Gemini 1.5 Pro</option>
+                  <option value="llama" className="bg-[#141418] text-zinc-200">Llama 3 70B</option>
+                </select>
+              </div>
+            ) : (
+              <span className="text-zinc-500 text-[11px] hidden sm:inline">Send prompt</span>
+            )}
           </div>
         )}
 

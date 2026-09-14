@@ -441,6 +441,8 @@ export default function QueryStudioPage() {
                 onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
                 isCentered={true}
+                llmProvider={dbConfig.llmProvider}
+                onLlmChange={(provider) => setDbConfig({ ...dbConfig, llmProvider: provider })}
               />
             </div>
           ) : (
@@ -536,6 +538,8 @@ export default function QueryStudioPage() {
                     onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
                     isCentered={false}
+                    llmProvider={dbConfig.llmProvider}
+                    onLlmChange={(provider) => setDbConfig({ ...dbConfig, llmProvider: provider })}
                   />
                 </div>
               </div>
