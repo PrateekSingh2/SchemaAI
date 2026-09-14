@@ -1,0 +1,400 @@
+﻿================================================================================
+                    SCHEMAAI - COMPLETE SYSTEM WORKFLOW & ARCHITECTURE
+================================================================================
+
+Table of Contents:
+--------------------------------------------------------------------------------
+1. EXECUTIVE OVERVIEW
+2. FRONTEND ARCHITECTURE & UI LAYOUT GUIDE
+   2.1 Top Navigation Bar (Topbar)
+   2.2 Left Sidebar (Chat History & Sessions Panel)
+   2.3 Center Workspace - Initial Centered Hero State
+   2.4 Center Workspace - Multi-Turn Chat Conversation State
+   2.5 Voice Speech-to-Text Microphone Engine
+   2.6 Generated Query Code Box (SqlOutput)
+   2.7 Results Output Modal & Collapsible Summary Box
+   2.8 Mutation Guard Security Warning Modal
+   2.9 Settings Popup Modal
+   2.10 Schema Explorer Canvas
+   2.11 Audit Logs & Governance Center
+3. BACKEND ARCHITECTURE & SERVICE DIRECTORY
+   3.1 LLM Orchestration & NL-to-SQL Synthesizer
+   3.2 Schema Context Injector & Semantic Vector Cache
+   3.3 SQL AST Parser & Dialect Validator
+   3.4 Security Mutation Guard Interceptor
+   3.5 Database Connection Pool & Execution Engine
+   3.6 Tabular Result Serializer & Pagination Engine
+   3.7 Telemetry, Token Accounting & Audit Logger
+4. END-TO-END OPERATIONAL LIFECYCLE (CHRONOLOGICAL WALKTHROUGH)
+   4.1 Voice / Text Prompt Ingestion
+   4.2 Query Synthesis & AST Validation
+   4.3 Query Presentation & User Interaction (Copy / Edit / Run)
+   4.4 Database Execution & Output Modal Display
+   4.5 Follow-up Multi-Turn Prompting & Single Unified Scroll
+   4.6 Destructive Mutation Detection & Safety Approval
+================================================================================
+
+
+================================================================================
+1. EXECUTIVE OVERVIEW
+================================================================================
+SchemaAI is an enterprise-grade AI Copilot designed for relational databases
+(PostgreSQL, MySQL, SQLite, Snowflake). It bridges plain English human intent
+(via typing or microphone speech) with optimized, schema-verified SQL and GraphQL
+queries, enforcing zero-trust mutation guards before any query touches the database.
+
+Key Design Philosophies:
+- Clean, tactile macOS-native visual aesthetic (translucent frosted glass,
+  ambient lighting, smooth squircles).
+- Single unified page scrollbar (like Google Gemini) preventing dual nested
+  scrollbars.
+- Multi-turn conversational continuation inside the same active chat.
+- Live Web Speech microphone dictation with automatic browser permission handling.
+- Automatic output modal popups with persistent collapsible summary boxes.
+
+
+================================================================================
+2. FRONTEND ARCHITECTURE & UI LAYOUT GUIDE
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 TOP NAVIGATION BAR (Topbar.tsx)
+--------------------------------------------------------------------------------
+Location: Fixed at the top of the entire screen (h-14 to h-16).
+
+Options & Features:
+- Brand Logo & Title:
+  - Database Icon + SchemaAI / Query Studio.
+  - Clicking returns to the home studio.
+- Navigation Tabs (Middle):
+  - [Query Studio] (Route: /) -> Main AI conversational workspace.
+  - [Schema Explorer] (Route: /schema) -> Interactive ER diagram with nodes.
+  - [Audit Logs] (Route: /logs) -> Real-time security and query audit ledger.
+- Database Connection Pill (Right):
+  - Shows active DB engine (e.g. PostgreSQL) and connected schema name
+    (production_core_db) with a pulsing cyan connection status indicator.
+- User Profile Avatar (Far Right):
+  - Displays user initials (SB) representing the logged-in database engineer.
+
+--------------------------------------------------------------------------------
+2.2 LEFT SIDEBAR (Chat History & Sessions Panel - ChatHistoryPanel.tsx)
+--------------------------------------------------------------------------------
+Location: Left column of the screen (Width: w-72 to w-76, collapsible).
+
+Options & Features:
+- [+ New Conversation] Button:
+  - Resets active turns and returns user to the clean Centered Hero prompt state.
+- [Collapse / Expand] Button (Chevron icon):
+  - Toggles sidebar between full width (76) and compact icon-only rail (14).
+- [Search Queries...] Input Box:
+  - Filters past query conversations in real time by prompt or generated SQL text.
+- Projects & Queries History List:
+  - Lists past conversational queries with timestamp and row count.
+  - Active session indicator (cyan dot and highlighted background).
+  - Hovering reveals a [Trash2] delete button to remove individual sessions.
+- [Settings] Button (Bottom):
+  - Located cleanly at the bottom of the sidebar.
+  - Clicking triggers the Antigravity/macOS-style Settings Popup Modal.
+
+--------------------------------------------------------------------------------
+2.3 CENTER WORKSPACE - INITIAL CENTERED HERO STATE (PromptInput.tsx)
+--------------------------------------------------------------------------------
+Displayed when there are 0 active conversation turns (Initial clean state).
+
+Options & Features:
+- Ambient Spotlight Glow:
+  - Soft radial diffused light behind the hero card.
+- Pill Badge & Headline:
+  - AI Relational Query Studio pill with pulsing cyan status dot.
+  - What SQL would you like to build? gradient headline.
+  - Subtitle explaining natural language SQL generation.
+- Frosted Glass Squircle Input Box:
+  - Textarea: Type schema prompt in plain English.
+  - Return Key Helper (Bottom Left): <kbd>↵ Return</kbd> • Natural language to SQL.
+  - Clear Input Button (Eraser icon): Appears when text is typed to clear the box.
+  - Microphone Dictation Button (Mic icon): Described in Section 2.5.
+  - Execute Action Button (ArrowUp icon): Submits prompt (or press Enter).
+- Quick Query Preset Chips (Below Box):
+  - Translucent macOS capsules:
+    * [⚡ Top Active Users & Performance]
+    * [📊 Quiz Difficulty & Problem Breakdown]
+    * [🛡️ Suspicious / Failed Submissions]
+    * [🏷️ Problem Tags & Acceptance Rate]
+  - Clicking any chip pre-fills the prompt and executes.
+
+--------------------------------------------------------------------------------
+2.4 CENTER WORKSPACE - MULTI-TURN CHAT CONVERSATION (page.tsx)
+--------------------------------------------------------------------------------
+Displayed immediately after executing the first prompt:
+- Replaces centered hero with sequential chat stream (Gemini layout).
+- Unified Single Scrollbar: The entire main workspace scrolls seamlessly without
+  nested dual scrollbars.
+- Session Header Bar:
+  - Turn counter (e.g. Interactive Chat Session • 3 Turns).
+  - [Start New Chat] button to reset back to Hero mode.
+- User Turn Bubble:
+  - Shows user avatar, You, timestamp, turn index (#1, #2, ...), and the exact
+    prompt text.
+- AI Response:
+  - Renders the generated SQL Code Box (SqlOutput.tsx).
+  - Below it, renders the Collapsible Output Box (OutputSummaryBox.tsx).
+- Sticky Bottom Input Bar:
+  - Fixed at the bottom of the screen with a gradient fade.
+  - Keeps the prompt textarea, microphone button, and submit arrow available
+    so users can ask follow-up questions in the SAME ongoing chat.
+
+--------------------------------------------------------------------------------
+2.5 VOICE SPEECH-TO-TEXT MICROPHONE ENGINE
+--------------------------------------------------------------------------------
+Location: Inside the prompt input box (Centered mode and Docked mode).
+
+How it operates:
+1. Clicking the Mic button triggers startListening().
+2. Browser Permission Check:
+   - Calls 
+avigator.mediaDevices.getUserMedia({ audio: true }).
+   - Browser displays native permission prompt: Allow SchemaAI to use your microphone.
+   - Shows spinner loader during permission handshake.
+   - If user denies permission, a dismissible red banner informs them:
+     Microphone access was denied. Please allow microphone permissions in your browser.
+3. Real-Time Speech Recognition:
+   - Initializes window.SpeechRecognition / webkitSpeechRecognition.
+   - Configured for continuous dictation (continuous = true, interimResults = true).
+   - Appends spoken words directly into the textarea as the user speaks.
+4. Active State UI:
+   - Mic button becomes a pulsing red beacon with animated ping ring.
+   - Status badge displays: Listening... speak now to write prompt.
+   - Clicking the mic button again safely stops recording.
+
+--------------------------------------------------------------------------------
+2.6 GENERATED QUERY CODE BOX (SqlOutput.tsx)
+--------------------------------------------------------------------------------
+Location: Inside each chat turn response.
+
+Options & Features:
+- Format Switcher: Toggle between [SQL] and [GraphQL].
+- Telemetry Metrics Badges: Execution latency (ms), tokens consumed, estimated cost.
+- Dialect Badge: Shows target engine (e.g. PostgreSQL 16).
+- Action Buttons:
+  - [Edit]: Opens in-place SQL code editor with monospace font.
+    * In edit mode, presents [Cancel], [Save], and [Save & Run] buttons.
+  - [Copy]: Copies raw SQL to clipboard with visual Copied checkmark.
+  - [Run Query] (Cyan Button): Executes the query against the database.
+  - [Maximize / Minimize]: Expands the code box to fill the view.
+
+--------------------------------------------------------------------------------
+2.7 RESULTS OUTPUT MODAL & COLLAPSIBLE SUMMARY BOX
+--------------------------------------------------------------------------------
+1. Output Results Popup Modal (OutputResultsModal.tsx):
+   - Automatically pops up as soon as user clicks [Run Query].
+   - Displays fetched table records in a paginated, sortable data grid.
+   - Displays total records fetched, execution time, and connected database table.
+   - Export buttons: Download data as CSV or JSON.
+   - Close button: Closes the modal.
+
+2. Collapsible Output Summary Box (OutputSummaryBox.tsx):
+   - Sits permanently directly below the SQL Code Box in the chat history.
+   - Purpose: If the user closes the popup modal and later wants to review the
+     fetched records, they do NOT need to re-execute the query.
+   - Clicking [View Results] or [Reopen Results Popup] immediately opens the modal
+     with the cached records.
+
+--------------------------------------------------------------------------------
+2.8 MUTATION GUARD SECURITY WARNING MODAL (MutationWarningModal.tsx)
+--------------------------------------------------------------------------------
+Location: Triggered globally before any query runs.
+
+How it operates:
+- Intercepts destructive SQL operations (DROP, DELETE, TRUNCATE, UPDATE, ALTER).
+- Highlights the dangerous query snippet in red.
+- Displays the affected target table and risk assessment.
+- Two explicit choices:
+  * [Deny Execution]: Aborts query, preventing any data loss.
+  * [Grant Authorization]: Explicit override allowing execution to proceed.
+
+--------------------------------------------------------------------------------
+2.9 SETTINGS POPUP MODAL (SettingsModal.tsx)
+--------------------------------------------------------------------------------
+Triggered from the [Settings] button at the bottom of the left sidebar.
+
+Tabs & Controls:
+- Tab 1: Database Connection
+  - Database Type (PostgreSQL, MySQL, SQLite, Snowflake).
+  - Host, Port, Database Name, Username, Password.
+  - [Test Connection] Button: Tests connectivity with live latency ping.
+- Tab 2: AI Engine
+  - Provider selection: OpenAI (GPT-4o), Anthropic (Claude 3.5 Sonnet),
+    Google Gemini 1.5 Pro, Local Ollama.
+  - API Key input and model temperature slider.
+- Tab 3: Security & Mutation Guard
+  - Toggle: Strict Mutation Guard (Require modal confirmation for mutations).
+  - Toggle: Auto-rollback on multi-statement errors.
+  - Toggle: Anonymize Sensitive PII before sending context to LLM.
+
+--------------------------------------------------------------------------------
+2.10 SCHEMA EXPLORER CANVAS (/schema)
+--------------------------------------------------------------------------------
+Location: Tab in Topbar (/schema).
+
+Features:
+- Interactive React Flow Node Canvas representing the relational schema.
+- Table Nodes: Display table name, row count estimate, columns, data types,
+  Primary Keys (PK), and Foreign Keys (FK).
+- Edge Connections: Visual connecting lines illustrating foreign key relationships.
+- MiniMap, Zoom, Fit-to-screen controls.
+- Table Inspector Drawer: Clicking a table node slides open detailed schema info.
+
+--------------------------------------------------------------------------------
+2.11 AUDIT LOGS & GOVERNANCE CENTER (/logs)
+--------------------------------------------------------------------------------
+Location: Tab in Topbar (/logs).
+
+Features:
+- Live chronological ledger of every prompt, generated query, and execution.
+- Status badges: EXECUTED, BLOCKED, MUTATION_OVERRIDDEN.
+- Columns: Timestamp, User, Query Snippet, Target Engine, Execution Latency.
+
+
+================================================================================
+3. BACKEND ARCHITECTURE & SERVICE DIRECTORY
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 LLM ORCHESTRATION & NL-TO-SQL SYNTHESIZER
+--------------------------------------------------------------------------------
+Role: Translates user natural language prompts into syntactically valid SQL.
+Responsibilities:
+- Ingests user prompt + current relational schema context.
+- Uses prompt engineering with few-shot examples and dialect-specific instructions
+  (e.g., PostgreSQL JSON operators, LIMIT vs TOP, CTEs).
+- Enforces read-only optimization for SELECT queries (adding index hints, joins).
+- Formats structured response containing query, explanation, and token metadata.
+
+--------------------------------------------------------------------------------
+3.2 SCHEMA CONTEXT INJECTOR & SEMANTIC VECTOR CACHE
+--------------------------------------------------------------------------------
+Role: Selects only relevant tables/columns to include in the LLM prompt.
+Responsibilities:
+- For large enterprise databases with 500+ tables, injecting the whole schema
+  exceeds context windows and adds latency.
+- Vector Embedding Service embeds table names, column descriptions, and metadata.
+- Finds top-K relevant tables for the user's prompt using cosine similarity.
+- Prunes schema to minimal viable context, saving 70% tokens and improving accuracy.
+
+--------------------------------------------------------------------------------
+3.3 SQL AST PARSER & DIALECT VALIDATOR
+--------------------------------------------------------------------------------
+Role: Validates the generated SQL code before it reaches the database.
+Responsibilities:
+- Parses SQL string into an Abstract Syntax Tree (AST).
+- Verifies that all referenced tables and columns actually exist in the schema.
+- Checks SQL dialect compliance (PostgreSQL, MySQL, SQLite, Snowflake).
+- Flags syntax errors or invalid joins before execution.
+
+--------------------------------------------------------------------------------
+3.4 SECURITY MUTATION GUARD INTERCEPTOR
+--------------------------------------------------------------------------------
+Role: Enforces zero-trust database safety.
+Responsibilities:
+- AST-level inspection searching for write/destructive tokens:
+  DROP, DELETE, TRUNCATE, ALTER, UPDATE, INSERT, GRANT, REVOKE.
+- If detected and enableQueryGuard is ON:
+  * Blocks automatic execution.
+  * Emits security event to Audit Logger.
+  * Signals frontend to open MutationWarningModal.
+
+--------------------------------------------------------------------------------
+3.5 DATABASE CONNECTION POOL & EXECUTION ENGINE
+--------------------------------------------------------------------------------
+Role: Executes verified queries against target database.
+Responsibilities:
+- Manages connection pool (pg-pool, mysql2, snowflake-sdk).
+- Applies safety timeouts (e.g. 10-second statement timeout to stop runaway queries).
+- Enforces Read-Only transactions (SET TRANSACTION READ ONLY) for SELECT queries.
+- Returns raw rows, column headers, and execution latency in milliseconds.
+
+--------------------------------------------------------------------------------
+3.6 TABULAR RESULT SERIALIZER & PAGINATION ENGINE
+--------------------------------------------------------------------------------
+Role: Formats database records for frontend consumption.
+Responsibilities:
+- Converts database data types (Date, Timestamp, JSONB, BigInt) into clean JSON.
+- Masks sensitive columns (e.g. hashed passwords, credit cards) according to PII rules.
+- Prepares paginated result chunks for fast rendering in OutputResultsModal.
+
+--------------------------------------------------------------------------------
+3.7 TELEMETRY, TOKEN ACCOUNTING & AUDIT LOGGER
+--------------------------------------------------------------------------------
+Role: Records compliance, token usage, and system health.
+Responsibilities:
+- Logs every query: user ID, prompt, generated SQL, execution time, row count.
+- Computes token costs (.0011 per query estimation) and token counts.
+- Streams live telemetry to the Audit Logs page (/logs).
+
+
+================================================================================
+4. END-TO-END OPERATIONAL LIFECYCLE (CHRONOLOGICAL FLOW)
+================================================================================
+
+Step 1: User Ingestion (Typing or Speaking)
+------------------------------------------
+1. User arrives at SchemaAI home screen.
+2. Centered Hero Box is shown (isCentered = true).
+3. User either:
+   a) Types a query into the textarea (e.g., Find top 5 users by score).
+   b) Clicks the Microphone button:
+      - Browser prompts for mic permission.
+      - User speaks query.
+      - Speech is transcribed live into the textarea.
+   c) Clicks a Preset capsule button.
+4. User presses [Enter] or clicks the [ArrowUp] action button.
+
+Step 2: Generation & Chat Transition
+------------------------------------
+1. handleGenerateQuery(promptText) is triggered:
+   - A placeholder turn is added to ctiveTurns.
+   - Workspace transitions from Centered Hero to Gemini-style sequential chat.
+   - Textarea moves to the sticky bottom input bar.
+2. Backend LLM Synthesizer generates the optimized SQL query.
+3. Chat turn displays the generated query in SqlOutput.tsx with syntax
+   highlighting, metrics badges, and dialect labels.
+
+Step 3: User Interaction with Generated Query
+---------------------------------------------
+User can:
+- Click [Copy] to copy the SQL to clipboard.
+- Click [Edit] to modify the query directly in the browser.
+- Switch format between [SQL] and [GraphQL].
+- Click [Run Query] to execute.
+
+Step 4: Execution & Safety Check
+---------------------------------
+1. handleRunQuery(turnId) is triggered.
+2. Mutation Guard Interceptor checks query for destructive keywords:
+   - If destructive (e.g. DELETE/DROP) and Guard is ON:
+     * MutationWarningModal opens with warning and affected table.
+     * Execution pauses until user clicks [Grant Authorization].
+   - If safe (SELECT): proceeds immediately.
+3. Database Execution Engine executes query against connected database.
+4. Tabular records, column names, and execution time are returned.
+
+Step 5: Output Presentation (Popup & Summary Box)
+-------------------------------------------------
+1. The OutputResultsModal opens automatically:
+   - User reviews records, sorts columns, and can export to CSV or JSON.
+2. When user closes the modal:
+   - The OutputSummaryBox remains below the query box in the chat history.
+   - User can re-open the results popup anytime by clicking [View Results]
+     without re-executing the query.
+
+Step 6: Follow-up Prompts in Same Chat
+---------------------------------------
+1. User types or speaks a follow-up query into the sticky bottom input bar
+   (e.g., Now filter them to only those who took weekly quizzes in August).
+2. Submitting appends Turn #2 into the SAME chat session.
+3. The page auto-scrolls smoothly to the bottom with the single unified scrollbar.
+4. Entire session is saved in the left History sidebar for future access.
+
+================================================================================
+                              END OF WORKFLOW FILE
+================================================================================
