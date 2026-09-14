@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,8 +16,15 @@ import {
   Menu,
   X,
   Radio,
+  LogIn,
+  LogOut,
+  User as UserIcon,
+  Unplug,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { SettingsModal } from "@/components/SettingsModal";
 
 interface TopbarProps {
   dbName?: string;
@@ -25,17 +32,105 @@ interface TopbarProps {
   isConnected?: boolean;
   isLayoutCustomized?: boolean;
   onResetLayout?: () => void;
+  onDisconnect?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
-  dbName = "production_core_db",
-  dbType = "PostgreSQL",
-  isConnected = true,
+  dbName: propDbName,
+  dbType: propDbType,
+  isConnected: propIsConnected,
   isLayoutCustomized = false,
   onResetLayout,
+  onDisconnect,
+  onOpenSettings,
 }) => {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user, signOutUser } = useAuth();
+  const [internalConnected, setInternalConnected] = useState<boolean>(false);
+  const [internalDbName, setInternalDbName] = useState<string>("");
+  const [internalDbType, setInternalDbType] = useState<string>("");
+
+  const handleOpenSettingsModal = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (onOpenSettings) {
+      onOpenSettings();
+    } else {
+      setIsSettingsOpen(true);
+    }
+  };
+
+  // Sync internal state with localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("schemaai_db_connected");
+        const isConn = stored === "true";
+        setInternalConnected(isConn);
+        try {
+          const cfg = localStorage.getItem("schemaai_db_config");
+          if (cfg) {
+            const parsed = JSON.parse(cfg);
+            if (parsed && typeof parsed === "object") {
+              setInternalDbType(parsed.dbType || "");
+              setInternalDbName(
+                parsed.databaseName === "production_core_db"
+                  ? ""
+                  : parsed.databaseName || parsed.sqlitePath || ""
+              );
+            }
+          }
+        } catch (_) {}
+      }
+    };
+
+    handleStorageChange();
+
+    const handleGlobalOpenSettings = () => {
+      handleOpenSettingsModal();
+    };
+
+    window.addEventListener("schemaai_db_changed", handleStorageChange);
+    window.addEventListener("schemaai_open_settings", handleGlobalOpenSettings);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("schemaai_db_changed", handleStorageChange);
+      window.removeEventListener("schemaai_open_settings", handleGlobalOpenSettings);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [onOpenSettings]);
+
+  const isConnected = propIsConnected !== undefined ? propIsConnected : internalConnected;
+  const currentDbType = (propDbType && propDbType !== "Database" ? propDbType : internalDbType) || (isConnected ? "Database" : "Database");
+  const currentDbName = propDbName || internalDbName || (isConnected ? (currentDbType ? `${currentDbType} Database` : "Connected") : "Not Connected");
+
+  const handleDisconnect = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInternalConnected(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("schemaai_db_connected", "false");
+      localStorage.removeItem("schemaai_introspected_schema");
+      window.dispatchEvent(new Event("schemaai_db_changed"));
+    }
+    if (onDisconnect) {
+      onDisconnect();
+    }
+  };
+
+  // Close dropdown when clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const tabs = [
     {
@@ -49,7 +144,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       href: "/schema",
       label: "Schema Explorer",
       icon: Network,
-      badge: "6 tables",
+      badge: internalConnected ? "Live Schema" : "Not Connected",
       isActive: pathname.startsWith("/schema"),
     },
     {
@@ -130,9 +225,9 @@ export const Topbar: React.FC<TopbarProps> = ({
             </button>
           )}
 
-          {/* Database Connection Status Pill */}
+          {/* Database Connection Status Pill & Disconnect Button */}
           <div
-            className="hidden lg:flex items-center space-x-2.5 px-3 py-1.5 rounded-xl bg-[#151518] border border-[#222226] text-xs sm:text-sm text-zinc-300 shadow-sm shrink-0"
+            className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#151518] border border-[#222226] text-xs sm:text-sm text-zinc-300 shadow-sm shrink-0"
             title="Database Connection"
           >
             <div className="relative flex items-center justify-center shrink-0">
@@ -143,17 +238,108 @@ export const Topbar: React.FC<TopbarProps> = ({
                 )}
               />
             </div>
-            <span className="text-zinc-200 font-mono font-medium">{dbType}</span>
+            <span className="text-zinc-200 font-mono font-medium">
+              {isConnected ? currentDbType : "Database"}
+            </span>
             <span className="text-zinc-600">•</span>
-            <span className="font-mono text-zinc-400 truncate max-w-[120px]">{dbName}</span>
+            <span className="font-mono text-zinc-400 truncate max-w-[130px]">
+              {isConnected ? (currentDbName || "Connected") : "Not Connected"}
+            </span>
+
+            {/* Disconnect or Connect Button directly beside the database name */}
+            {isConnected ? (
+              <button
+                type="button"
+                onClick={handleDisconnect}
+                className="ml-1.5 flex items-center space-x-1 px-2 py-0.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 active:bg-rose-500/30 border border-rose-500/20 text-rose-300 hover:text-rose-200 text-[11px] font-medium transition-all cursor-pointer select-none"
+                title="Disconnect database"
+              >
+                <Unplug className="w-3 h-3 text-rose-400 shrink-0" />
+                <span>Disconnect</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenSettingsModal}
+                className="ml-1.5 flex items-center space-x-1 px-2 py-0.5 rounded-md bg-[#38bdf8]/10 hover:bg-[#38bdf8]/20 border border-[#38bdf8]/25 text-[#38bdf8] text-[11px] font-medium transition-all cursor-pointer select-none"
+                title="Open Settings to connect a database"
+              >
+                <Zap className="w-3 h-3 text-[#38bdf8] shrink-0" />
+                <span>Connect</span>
+              </button>
+            )}
           </div>
 
-          {/* User Profile Avatar */}
-          <div className="flex items-center pl-1 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-[#202026] border border-[#27272f] flex items-center justify-center font-semibold text-xs text-zinc-200 cursor-pointer">
-              SB
+          {/* User Profile Avatar / Sign In Button */}
+          {user ? (
+            <div className="relative flex items-center pl-1 shrink-0" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="w-8 h-8 rounded-full bg-[#18181c] border border-white/[0.12] hover:border-sky-500/50 flex items-center justify-center font-semibold text-xs text-zinc-200 cursor-pointer overflow-hidden transition-all shadow-sm focus:outline-none"
+                title={user.displayName || user.email || "User Profile"}
+              >
+                {user.photoURL ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName || "User"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>
+                    {(user.displayName || user.email || "U")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </span>
+                )}
+              </button>
+
+              {/* User Dropdown Menu */}
+              {userDropdownOpen && (
+                <div className="absolute right-0 top-11 w-56 rounded-2xl bg-[#141418] border border-white/[0.1] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 select-none">
+                  <div className="px-3 py-2 border-b border-white/[0.06] mb-1">
+                    <p className="text-xs font-semibold text-zinc-100 truncate">
+                      {user.displayName || "Database User"}
+                    </p>
+                    <p className="text-[11px] text-zinc-400 truncate">
+                      {user.email || "Authenticated via Google"}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      setUserDropdownOpen(false);
+                      handleOpenSettingsModal(e);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Database Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                      signOutUser();
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-200 hover:text-white text-xs sm:text-sm font-medium transition-all shadow-sm cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <span>Sign In</span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -211,14 +397,57 @@ export const Topbar: React.FC<TopbarProps> = ({
             {/* Mobile Database Connection Banner */}
             <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#16161a] border border-[#222226] text-sm text-zinc-300">
               <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8]" />
-                <span className="font-mono text-[#38bdf8] font-medium">{dbType}</span>
+                <span
+                  className={cn(
+                    "w-2.5 h-2.5 rounded-full",
+                    isConnected ? "bg-[#38bdf8] shadow-[0_0_8px_#38bdf8]" : "bg-rose-500"
+                  )}
+                />
+                <span className="font-mono text-[#38bdf8] font-medium">
+                  {isConnected ? currentDbType : "Database"}
+                </span>
                 <span className="text-zinc-500">•</span>
-                <span className="font-mono text-zinc-300 text-xs">{dbName}</span>
+                <span className="font-mono text-zinc-300 text-xs">
+                  {isConnected ? (currentDbName || "Connected") : "Not Connected"}
+                </span>
               </div>
+              {isConnected ? (
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-300 text-xs font-medium cursor-pointer"
+                >
+                  <Unplug className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Disconnect</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    setMobileMenuOpen(false);
+                    handleOpenSettingsModal(e);
+                  }}
+                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#38bdf8]/10 hover:bg-[#38bdf8]/20 border border-[#38bdf8]/25 text-[#38bdf8] text-xs font-medium cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>Connect</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Standalone Settings Modal for routes that do not supply onOpenSettings */}
+      {!onOpenSettings && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onSave={() => {
+            setIsSettingsOpen(false);
+            setInternalConnected(true);
+          }}
+        />
       )}
     </>
   );

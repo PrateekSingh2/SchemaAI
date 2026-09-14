@@ -203,18 +203,33 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#292524]/60">
-              {filteredLogs.map((log) => (
-                <tr
-                  key={log.id}
-                  className="hover:bg-[#1f1c19] transition-colors group cursor-pointer"
-                  onClick={() => setSelectedLog(log)}
-                >
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="font-semibold text-[#3ecf8e] block">{log.id}</span>
-                    <span className="text-[10px] text-stone-500 flex items-center gap-1 mt-0.5">
-                      <Clock className="w-2.5 h-2.5" /> {log.timestamp}
-                    </span>
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-16 text-center text-stone-500 text-xs">
+                    <div className="flex flex-col items-center justify-center space-y-2.5 max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-[#171412] border border-[#292524] flex items-center justify-center shadow-inner">
+                        <Shield className="w-6 h-6 text-stone-600" />
+                      </div>
+                      <p className="font-semibold text-stone-300 text-sm">No Audit Logs Recorded Yet</p>
+                      <p className="text-[11px] text-stone-500 leading-relaxed">
+                        Natural language queries, generated SQL ASTs, and mutation approvals executed in Query Studio will be cryptographically tracked here in real-time.
+                      </p>
+                    </div>
                   </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr
+                    key={log.id}
+                    className="hover:bg-[#1f1c19] transition-colors group cursor-pointer"
+                    onClick={() => setSelectedLog(log)}
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="font-semibold text-[#3ecf8e] block">{log.id}</span>
+                      <span className="text-[10px] text-stone-500 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-2.5 h-2.5" /> {log.timestamp}
+                      </span>
+                    </td>
 
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="text-stone-200 block font-medium">{log.ipAddress}</span>
@@ -252,7 +267,7 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onRefresh }) => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

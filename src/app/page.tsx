@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/Topbar";
 import { MutationWarningModal } from "@/components/MutationWarningModal";
 import { OutputResultsModal } from "@/components/QueryStudio/OutputResultsModal";
 import { SettingsModal, DatabaseConfig } from "@/components/SettingsModal";
+import { DatabaseRequiredModal } from "@/components/QueryStudio/DatabaseRequiredModal";
 import { SqlOutput } from "@/components/QueryStudio/SqlOutput";
 import { PromptInput } from "@/components/QueryStudio/PromptInput";
 import { OutputSummaryBox } from "@/components/QueryStudio/OutputSummaryBox";
@@ -16,6 +18,7 @@ import {
 import {
   detectMutation,
   generateMockResult,
+  AuditLogEntry,
 } from "@/lib/mockData";
 import {
   Database,
@@ -24,57 +27,80 @@ import {
   Sparkles,
   RotateCcw,
   Bot,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const INITIAL_TURNS: ChatMessageTurn[] = [
-  {
-    id: "turn-1",
-    userPrompt: "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time",
-    timestamp: "10m ago",
-    sql: `SELECT \n  u.id AS user_id,\n  u.username,\n  u.email,\n  u.role,\n  COUNT(DISTINCT s.problem_id) AS problems_solved,\n  SUM(s.score_awarded) AS total_score,\n  ROUND(AVG(s.execution_time_ms), 2) AS avg_runtime_ms\nFROM users u\nJOIN submissions s ON u.id = s.user_id\nJOIN problems p ON s.problem_id = p.id\nWHERE s.status = 'ACCEPTED'\nGROUP BY u.id, u.username, u.email, u.role\nORDER BY total_score DESC, avg_runtime_ms ASC\nLIMIT 5;`,
-    queryFormat: "sql",
-    hasRun: true,
-    records: [
-      { user_id: "usr_99a82b", username: "alex_chen", email: "alex.chen@cyber.dev", role: "contender", problems_solved: 48, total_score: 4800, avg_runtime_ms: 24.5 },
-      { user_id: "usr_44f10c", username: "elena_rostova", email: "elena.r@deepmath.org", role: "master", problems_solved: 46, total_score: 4650, avg_runtime_ms: 31.2 },
-      { user_id: "usr_77e31d", username: "marcus_v", email: "m.vance@quantum.ai", role: "master", problems_solved: 42, total_score: 4200, avg_runtime_ms: 28.8 },
-      { user_id: "usr_12c98a", username: "sophia_k", email: "sophia.k@matrix.io", role: "contender", problems_solved: 39, total_score: 3950, avg_runtime_ms: 45.1 },
-      { user_id: "usr_88d33e", username: "dev_siddharth", email: "sid.sharma@byteflow.net", role: "pro", problems_solved: 37, total_score: 3700, avg_runtime_ms: 38.6 },
-    ],
-    columns: ["user_id", "username", "email", "role", "problems_solved", "total_score", "avg_runtime_ms"],
-    executionTime: 32,
-    tokens: 285,
-    cost: "$0.0011",
-  },
-];
-
-const INITIAL_OPERATIONS: ChatOperation[] = [
-  {
-    id: "op-1",
-    prompt: "Find the top 5 users who scored highest in weekly quizzes with their average submission execution time",
-    sql: INITIAL_TURNS[0].sql,
-    timestamp: "10m ago",
-    format: "sql",
-    status: "executed",
-    rowCount: 5,
-    turns: INITIAL_TURNS,
-  },
-  {
-    id: "op-2",
-    prompt: "Show all active quizzes along with the count of easy, medium, and hard problems linked to each.",
-    sql: `SELECT \n  q.id AS quiz_id,\n  q.title AS quiz_title,\n  q.pass_percentage,\n  COUNT(p.id) AS total_problems,\n  q.is_active\nFROM quizzes q\nLEFT JOIN problems p ON q.id = p.quiz_id\nWHERE q.is_active = true\nGROUP BY q.id, q.title, q.pass_percentage, q.is_active;`,
-    timestamp: "25m ago",
-    format: "sql",
-    status: "generated",
-    rowCount: 5,
-  },
-];
+import { useAuth } from "@/context/AuthContext";
+import {
+  saveChatSessionToFirestore,
+  getUserChatSessionsFromFirestore,
+  deleteUserChatSessionFromFirestore,
+  clearAllUserChatSessionsFromFirestore,
+} from "@/lib/chatService";
 
 export default function QueryStudioPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [isMutationModalOpen, setIsMutationModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Database Connection State (Must be configured before executing prompts)
+  const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
+
+  // Database config
+  const [dbConfig, setDbConfig] = useState({
+    dbType: "",
+    databaseName: "",
+    enableQueryGuard: true,
+    llmProvider: "openai",
+  });
+
+  useEffect(() => {
+    const checkDbStatus = () => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("schemaai_db_connected");
+        setIsDbConnected(stored === "true");
+        try {
+          const cfg = localStorage.getItem("schemaai_db_config");
+          if (cfg) {
+            const parsed = JSON.parse(cfg);
+            if (parsed && typeof parsed === "object") {
+              const cleanedDbName = parsed.databaseName || parsed.sqlitePath || "";
+              setDbConfig((prev) => ({
+                ...prev,
+                dbType: parsed.dbType || prev.dbType,
+                databaseName: cleanedDbName,
+              }));
+            }
+          }
+        } catch (_) {}
+      }
+    };
+    checkDbStatus();
+
+    window.addEventListener("schemaai_db_changed", checkDbStatus);
+    window.addEventListener("storage", checkDbStatus);
+    return () => {
+      window.removeEventListener("schemaai_db_changed", checkDbStatus);
+      window.removeEventListener("storage", checkDbStatus);
+    };
+  }, []);
+
+  // Redirect unauthenticated visitors to /login immediately
+  useEffect(() => {
+    if (!loading && !user) {
+      try {
+        const cached = localStorage.getItem("schemaai_user_session");
+        if (!cached) {
+          router.replace("/login");
+        }
+      } catch (e) {
+        router.replace("/login");
+      }
+    }
+  }, [user, loading, router]);
 
   // Active Output Results Modal State
   const [modalOutputData, setModalOutputData] = useState<{
@@ -102,8 +128,6 @@ export default function QueryStudioPage() {
     enableQueryGuard: true,
   });
 
-  // Query Studio state
-  const [currentPrompt, setCurrentPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Chat conversation turns:
@@ -112,8 +136,27 @@ export default function QueryStudioPage() {
   const [activeTurns, setActiveTurns] = useState<ChatMessageTurn[]>([]);
   const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
 
-  // Operations / Chat History
-  const [operations, setOperations] = useState<ChatOperation[]>(INITIAL_OPERATIONS);
+  // Operations / Chat History (synced with Firestore for logged-in user)
+  const [operations, setOperations] = useState<ChatOperation[]>([]);
+
+  // Load chat history from Firestore when authenticated
+  useEffect(() => {
+    async function loadUserChats() {
+      if (user?.uid) {
+        try {
+          const remoteChats = await getUserChatSessionsFromFirestore(user.uid);
+          if (remoteChats && remoteChats.length > 0) {
+            setOperations(remoteChats);
+          }
+        } catch (err) {
+          console.warn("Could not load user chats:", err);
+        }
+      } else {
+        setOperations([]);
+      }
+    }
+    loadUserChats();
+  }, [user]);
 
   // Pending mutation execution state
   const [pendingMutation, setPendingMutation] = useState<{
@@ -139,13 +182,68 @@ export default function QueryStudioPage() {
     }
   }, [activeTurns.length, isGenerating]);
 
+  // If user is not authenticated or auth state is loading, show loading screen
+  if (loading || !user) {
+    return (
+      <div className="h-screen w-screen bg-[#0e0e11] flex items-center justify-center select-none">
+        <div className="flex flex-col items-center space-y-3 animate-in fade-in duration-300">
+          <div className="w-11 h-11 rounded-2xl bg-[#141418] border border-white/[0.1] flex items-center justify-center shadow-2xl">
+            <Database className="w-5 h-5 text-[#38bdf8] animate-pulse" />
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-zinc-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+            <span>Loading SchemaAI session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 1. Submit a prompt:
-  // If no turns yet, creates the first turn and starts the chat session.
-  // If turns already exist, appends a new turn into the SAME chat conversation!
+  // Checks for active database connection first!
+  // If not connected, keeps prompt safe in cache and shows Database Required Modal!
+  const recordAuditLog = (userPrompt: string, sql: string, durationMs: number, rowCount: number) => {
+    try {
+      if (typeof window !== "undefined") {
+        const mutationCheck = detectMutation(sql);
+        const logEntry: AuditLogEntry = {
+          id: `LOG-${Date.now().toString().slice(-6)}`,
+          timestamp: new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC",
+          ipAddress: "127.0.0.1",
+          userPrompt,
+          generatedSql: sql,
+          status: mutationCheck.isMutation ? "MUTATION_APPROVED" : "SUCCESS",
+          durationMs: durationMs || 28,
+          rowsAffected: rowCount,
+          model: "GPT-4o (schema-tuned)",
+          clientDevice: typeof navigator !== "undefined" && navigator.userAgent.includes("Mac") ? "Chrome / macOS" : "Browser Client",
+        };
+        const prevLogs = JSON.parse(localStorage.getItem("schemaai_audit_logs") || "[]");
+        localStorage.setItem("schemaai_audit_logs", JSON.stringify([logEntry, ...(Array.isArray(prevLogs) ? prevLogs : [])].slice(0, 100)));
+        window.dispatchEvent(new Event("schemaai_audit_logs_changed"));
+      }
+    } catch (_) {}
+  };
+
   const handleGenerateQuery = async (promptText: string) => {
     if (!promptText.trim()) return;
 
+    // Check if database is configured/connected
+    if (!isDbConnected) {
+      // Keep prompt safely in state and sessionStorage so user never loses work!
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("schemaai_cached_prompt", promptText);
+      }
+      setCurrentPrompt(promptText);
+      setIsDbModalOpen(true);
+      return;
+    }
+
+    // Clear prompt and cache upon successful execution
     setCurrentPrompt("");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("schemaai_cached_prompt");
+    }
     setIsGenerating(true);
 
     const turnId = `turn-${Date.now()}`;
@@ -259,7 +357,7 @@ export default function QueryStudioPage() {
     );
     setIsGenerating(false);
 
-    // Update or create chat operation in left panel
+    // Update or create chat operation in left panel & Firestore
     if (!activeOperationId) {
       const newOpId = `op-${Date.now()}`;
       const newOp: ChatOperation = {
@@ -296,6 +394,8 @@ export default function QueryStudioPage() {
         )
       );
     }
+
+    recordAuditLog(promptText, mockOutput.sql, mockOutput.executionTime, mockOutput.records.length);
   };
 
   // 2. Run Query action for a specific turn
@@ -394,6 +494,8 @@ export default function QueryStudioPage() {
         )
       );
     }
+
+    recordAuditLog(promptToCheck, queryToExecute, mockOutput.executionTime, mockOutput.records.length);
   };
 
   // 3. User edits SQL for a specific turn
@@ -458,6 +560,9 @@ export default function QueryStudioPage() {
   // 8. Delete individual operation
   const handleDeleteOperation = (id: string) => {
     setOperations((prev) => prev.filter((op) => op.id !== id));
+    if (user?.uid) {
+      deleteUserChatSessionFromFirestore(user.uid, id);
+    }
     if (activeOperationId === id) {
       handleNewChat();
     }
@@ -465,6 +570,12 @@ export default function QueryStudioPage() {
 
   // 9. Clear all history
   const handleClearHistory = () => {
+    if (user?.uid) {
+      clearAllUserChatSessionsFromFirestore(
+        user.uid,
+        operations.map((o) => o.id)
+      );
+    }
     setOperations([]);
     handleNewChat();
   };
@@ -514,9 +625,17 @@ export default function QueryStudioPage() {
     <div className="h-screen-dvh w-screen overflow-hidden bg-[#0e0e11] text-[#f4f4f5] flex flex-col font-sans select-none antialiased">
       {/* Top Navbar */}
       <Topbar
-        dbName={dbConfig.databaseName}
-        dbType={dbConfig.dbType}
-        isConnected={true}
+        dbName={isDbConnected ? dbConfig.databaseName : undefined}
+        dbType={isDbConnected ? dbConfig.dbType : undefined}
+        isConnected={isDbConnected}
+        onDisconnect={() => {
+          setIsDbConnected(false);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("schemaai_db_connected", "false");
+            window.dispatchEvent(new Event("schemaai_db_changed"));
+          }
+        }}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       {/* Main Container below Navbar: Left Panel + Unified Center Workspace */}
@@ -544,7 +663,7 @@ export default function QueryStudioPage() {
             <div className="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
               <PromptInput
                 value={currentPrompt}
-                onChange={setCurrentPrompt}
+                onChange={handlePromptChange}
                 onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
                 isCentered={true}
@@ -664,7 +783,7 @@ export default function QueryStudioPage() {
                 <div className="max-w-4xl mx-auto w-full">
                   <PromptInput
                     value={currentPrompt}
-                    onChange={setCurrentPrompt}
+                    onChange={handlePromptChange}
                     onGenerateAndRun={handleGenerateQuery}
                     isLoading={isGenerating}
                     isCentered={false}
@@ -709,6 +828,7 @@ export default function QueryStudioPage() {
         onSave={(newConfig: any) => {
           setDbConfig(newConfig);
         }}
+        cachedPrompt={currentPrompt}
       />
     </div>
   );

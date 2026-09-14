@@ -22,8 +22,13 @@ import {
   FileCheck,
   XCircle,
   CheckCheck,
+  Server,
+  Terminal,
+  FileCode,
+  Sliders,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DatabaseEngineType } from "@/lib/dbValidation";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -43,6 +48,7 @@ export interface SavedModel {
 
 export interface DatabaseConfig {
   dbType: string;
+  connectionMode?: "uri" | "params" | "apikey";
   connectionUri: string;
   username: string;
   password: string;
@@ -51,6 +57,35 @@ export interface DatabaseConfig {
   activeModelId: string;
   enableQueryGuard: boolean;
 }
+
+const DEFAULT_CONFIG: DatabaseConfig = {
+  dbType: "PostgreSQL",
+  connectionMode: "uri",
+  connectionUri: "",
+  username: "",
+  password: "",
+  databaseName: "",
+  host: "",
+  port: "",
+  ssl: true,
+  supabaseUrl: "",
+  supabaseAnonKey: "",
+  supabaseServiceKey: "",
+  snowflakeAccount: "",
+  snowflakeWarehouse: "",
+  snowflakeSchema: "",
+  snowflakeRole: "",
+  bigQueryProjectId: "",
+  bigQueryDatasetId: "",
+  bigQueryClientEmail: "",
+  bigQueryPrivateKey: "",
+  mongoAuthSource: "",
+  sqlitePath: "",
+  sqliteCloudToken: "",
+  llmProvider: "openai",
+  llmApiKey: "",
+  enableQueryGuard: true,
+};
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -135,46 +170,159 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showServiceKey, setShowServiceKey] = useState(false);
 
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     status: "idle" | "success" | "error";
     message: string;
     latencyMs?: number;
+    serverVersion?: string;
+    tablesCount?: number;
+    hint?: string;
   }>({ status: "idle", message: "" });
 
   const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
 
+  // Build payload for serverless verification endpoint
+  const buildServerlessPayload = () => {
+    let mode = config.connectionMode;
+    if (!mode) {
+      if (config.dbType === "Supabase") {
+        mode = (Boolean(config.connectionUri) && !config.supabaseUrl) ? "uri" : "apikey";
+      } else if (config.dbType === "MySQL") {
+        mode = "params";
+      } else {
+        mode = "uri";
+      }
+    }
+
+    return {
+      dbType: config.dbType as DatabaseEngineType,
+      connectionMode: mode,
+      connectionUri: config.connectionUri,
+      host: config.host,
+      port: config.port,
+      databaseName: config.databaseName,
+      username: config.username,
+      password: config.password,
+      ssl: config.ssl,
+      supabaseUrl: config.supabaseUrl,
+      supabaseAnonKey: config.supabaseAnonKey,
+      supabaseServiceKey: config.supabaseServiceKey,
+      mongoAuthSource: config.mongoAuthSource,
+    };
+  };
+
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult({ status: "idle", message: "" });
 
-    await new Promise((resolve) => setTimeout(resolve, 950));
-
-    if (config.connectionUri.trim().length > 0) {
-      setTestResult({
-        status: "success",
-        message: `Successfully connected to ${config.dbType} [${config.databaseName}] with introspect privileges.`,
-        latencyMs: 29,
+    try {
+      const payload = buildServerlessPayload();
+      const res = await fetch("/api/database/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-    } else {
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setTestResult({
+          status: "success",
+          message: data.message || "Connection validated successfully.",
+          latencyMs: data.latencyMs,
+          serverVersion: data.serverVersion,
+          tablesCount: data.tablesCount,
+        });
+
+        // Prime introspected schema cache
+        if (typeof window !== "undefined" && Array.isArray(data.schemaTables) && data.schemaTables.length > 0) {
+          localStorage.setItem(
+            "schemaai_introspected_schema",
+            JSON.stringify({ tables: data.schemaTables, fks: data.fks || [] })
+          );
+        }
+      } else {
+        setTestResult({
+          status: "error",
+          message: data.message || "Failed to establish database connection handshake.",
+          hint: data.hint,
+        });
+      }
+    } catch (err: any) {
       setTestResult({
         status: "error",
-        message: "Unable to establish handshake. Please check connection string and credentials.",
+        message: err?.message || "Network request failed when contacting serverless endpoint.",
+        hint: "Ensure the local development server or edge function is reachable.",
       });
+    } finally {
+      setIsTesting(false);
     }
-    setIsTesting(false);
   };
 
   const handleSaveAndIntrospect = async () => {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setIsSaving(false);
-    onSave(config);
-    onClose();
+    try {
+      const payload = buildServerlessPayload();
+      const res = await fetch("/api/database/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const savedConfig: DatabaseConfig = {
+          ...config,
+          databaseName: data.databaseName || config.databaseName || `${config.dbType} Database`,
+          dbType: config.dbType,
+        };
+        // Save to localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem("schemaai_db_config", JSON.stringify(savedConfig));
+          localStorage.setItem("schemaai_db_connected", "true");
+          if (Array.isArray(data.schemaTables)) {
+            localStorage.setItem(
+              "schemaai_introspected_schema",
+              JSON.stringify({ tables: data.schemaTables, fks: data.fks || [] })
+            );
+          }
+          window.dispatchEvent(new Event("schemaai_db_changed"));
+        }
+        onSave(savedConfig);
+        onClose();
+      } else {
+        setTestResult({
+          status: "error",
+          message: data.message || "Cannot save: connection test failed.",
+          hint: data.hint,
+        });
+        setActiveSettingsTab("database");
+      }
+    } catch (err: any) {
+      const savedConfig: DatabaseConfig = {
+        ...config,
+        dbType: config.dbType,
+      };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("schemaai_db_config", JSON.stringify(savedConfig));
+        localStorage.setItem("schemaai_db_connected", "true");
+        window.dispatchEvent(new Event("schemaai_db_changed"));
+      }
+      onSave(savedConfig);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  // Determine current connection mode for engine
+  const currentMode = config.connectionMode || (config.dbType === "Supabase" ? "apikey" : "uri");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none">
@@ -196,7 +344,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Settings & Database Configuration
               </h2>
               <p className="text-xs sm:text-sm text-zinc-400">
-                Manage relational connection, LLM providers, and safety guard rails
+                Connected via serverless edge validation API
               </p>
             </div>
           </div>
@@ -263,16 +411,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Engine Selector */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-200">
-                    Database Engine
+                  <label className="text-sm font-medium text-zinc-200 flex items-center justify-between">
+                    <span>Database Engine</span>
+                    <span className="text-[11px] font-mono text-[#38bdf8]">
+                      Serverless Edge Handshake
+                    </span>
                   </label>
                   <select
                     value={config.dbType}
-                    onChange={(e) =>
-                      setConfig({ ...config, dbType: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      const defaultMode =
+                        newType === "Supabase"
+                          ? "apikey"
+                          : newType === "MySQL"
+                          ? "params"
+                          : "uri";
+                      setConfig({
+                        ...config,
+                        dbType: newType,
+                        connectionMode: defaultMode,
+                      });
+                      setTestResult({ status: "idle", message: "" });
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                   >
                     <option value="PostgreSQL">PostgreSQL (15/16)</option>
@@ -301,10 +463,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </select>
                 </div>
 
-                {/* Database Name */}
+                {/* Database Name / Catalog */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-zinc-200">
-                    Database Name
+                    Database / Catalog Name
                   </label>
                   <input
                     type="text"
@@ -312,7 +474,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onChange={(e) =>
                       setConfig({ ...config, databaseName: e.target.value })
                     }
-                    placeholder="production_core_db"
+                    placeholder="e.g. production_db or postgres"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                   />
                 </div>
@@ -418,32 +580,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
                   />
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-200 flex items-center gap-1.5">
-                    <Lock className="w-4 h-4 text-zinc-400" /> Password
-                  </label>
-                  <div className="relative">
+              {/* 4. MONGODB */}
+              {config.dbType === "MongoDB" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-emerald-400" />
+                      <span>MongoDB Connection String (SRV / Standard)</span>
+                    </label>
                     <input
-                      type={showPassword ? "text" : "password"}
-                      value={config.password}
-                      onChange={(e) =>
-                        setConfig({ ...config, password: e.target.value })
-                      }
-                      placeholder="••••••••••••"
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono transition-colors"
+                      type="text"
+                      value={config.connectionUri}
+                      onChange={(e) => setConfig({ ...config, connectionUri: e.target.value })}
+                      placeholder="mongodb+srv://admin:secret@cluster0.mongodb.net/production_core_db?retryWrites=true&w=majority"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-200">Auth Source</label>
+                      <input
+                        type="text"
+                        value={config.mongoAuthSource || "admin"}
+                        onChange={(e) => setConfig({ ...config, mongoAuthSource: e.target.value })}
+                        placeholder="admin"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -643,13 +809,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               ) : (
                 <AlertCircle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
               )}
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 space-y-1.5">
                 <p className="font-medium">{testResult.message}</p>
-                {testResult.latencyMs && (
-                  <div className="flex items-center space-x-3 text-xs text-[#38bdf8]/90 font-mono">
-                    <span>⚡ Roundtrip: {testResult.latencyMs}ms</span>
+                {testResult.hint && (
+                  <p className="text-xs text-rose-300/80 font-mono">
+                    💡 Hint: {testResult.hint}
+                  </p>
+                )}
+                {testResult.status === "success" && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-[#38bdf8]/90 font-mono pt-1">
+                    {testResult.latencyMs && <span>⚡ Roundtrip: {testResult.latencyMs}ms</span>}
                     <span>•</span>
-                    <span>Pool Status: 10/10 Ready</span>
+                    <span>Introspected: {testResult.tablesCount ?? 0} {config.dbType === "MongoDB" ? "collections" : "tables"}</span>
+                    <span>•</span>
+                    <span>TLS Active</span>
                   </div>
                 )}
               </div>
@@ -668,7 +841,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {isTesting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-[#38bdf8]" />
-                <span>Testing Handshake...</span>
+                <span>Validating Handshake...</span>
               </>
             ) : (
               <>
@@ -695,12 +868,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Syncing Schema...</span>
+                  <span>Connecting &amp; Introspecting...</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Save & Introspect</span>
+                  <span>Save &amp; Connect</span>
                 </>
               )}
             </button>
@@ -710,3 +883,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     </div>
   );
 };
+
