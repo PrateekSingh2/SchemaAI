@@ -267,7 +267,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   {savedModels.length > 0 ? (
                     <select
                       value={activeModelId || ""}
-                      onChange={(e) => onModelChange?.(e.target.value)}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_model__") {
+                          onOpenSettings?.();
+                        } else {
+                          onModelChange?.(e.target.value);
+                        }
+                      }}
                       className="bg-transparent text-zinc-400 hover:text-zinc-200 text-xs outline-none border-none cursor-pointer max-w-[150px] truncate"
                     >
                       {savedModels.map((m) => (
@@ -275,6 +281,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                           {m.name}
                         </option>
                       ))}
+                      <option value="__add_model__" className="bg-[#141418] text-amber-400">
+                        + Add Model...
+                      </option>
                     </select>
                   ) : (
                     <button
@@ -422,7 +431,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                   {savedModels.length > 0 ? (
                     <select
                       value={activeModelId || ""}
-                      onChange={(e) => onModelChange?.(e.target.value)}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_model__") {
+                          onOpenSettings?.();
+                        } else {
+                          onModelChange?.(e.target.value);
+                        }
+                      }}
                       className="bg-transparent text-zinc-400 hover:text-zinc-200 text-[11px] outline-none border-none cursor-pointer max-w-[120px] truncate"
                     >
                       {savedModels.map((m) => (
@@ -430,6 +445,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
                           {m.name}
                         </option>
                       ))}
+                      <option value="__add_model__" className="bg-[#141418] text-amber-400">
+                        + Add Model...
+                      </option>
                     </select>
                   ) : (
                     <button

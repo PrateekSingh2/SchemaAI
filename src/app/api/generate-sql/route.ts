@@ -24,7 +24,7 @@ export async function POST(req: Request) {
           "Authorization": `Bearer ${llmApiKey}`
         },
         body: JSON.stringify({
-          model: "meta/llama-3.1-70b-instruct",
+          model: "nvidia/nemotron-3-super-120b-a12b",
           messages: [
             {
               role: "system",
@@ -86,7 +86,8 @@ If none of those apply, reply naturally in plain text.`
             }
           ],
           tool_choice: "auto",
-          temperature: 0.1,
+          temperature: 0.5,
+          top_p: 1,
           max_tokens: 1024,
         }),
       });
@@ -121,7 +122,7 @@ If none of those apply, reply naturally in plain text.`
         }
       }
     } else if (llmProvider === "gemini") {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${llmApiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${llmApiKey}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
