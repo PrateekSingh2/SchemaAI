@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ReactFlow,
   Background,
@@ -16,7 +16,8 @@ import {
   Panel,
 } from "@xyflow/react";
 import { TableNode } from "./TableNode";
-import { initialTables, initialEdges, TableNodeData } from "@/lib/mockData";
+import { TableNodeData } from "@/lib/mockData";
+import { getIntrospectedSchema } from "@/lib/schemaCatalog";
 import {
   Search,
   RefreshCw,
@@ -24,6 +25,8 @@ import {
   Sparkles,
   Database,
   ArrowRightLeft,
+  Unplug,
+  Zap,
 } from "lucide-react";
 
 const nodeTypes = {
@@ -31,10 +34,77 @@ const nodeTypes = {
 };
 
 export const SchemaCanvas: React.FC = () => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<TableNodeData>>(initialTables);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<TableNodeData>>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTableInfo, setSelectedTableInfo] = useState<TableNodeData | null>(null);
+  const [activeDbName, setActiveDbName] = useState<string>("Not Connected");
+  const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
+  const [currentDbType, setCurrentDbType] = useState<string>("PostgreSQL");
+
+  // Synchronize with database connection status and load introspected schema dynamically
+  useEffect(() => {
+    const updateSchemaState = () => {
+      if (typeof window !== "undefined") {
+        const connected = localStorage.getItem("schemaai_db_connected") === "true";
+        setIsDbConnected(connected);
+
+        if (!connected) {
+          // As soon as database is disconnected, IMMEDIATELY clear the schema explorer!
+          localStorage.removeItem("schemaai_introspected_schema");
+          setNodes([]);
+          setEdges([]);
+          setSelectedTableInfo(null);
+          setActiveDbName("Not Connected");
+        } else {
+          // Database is connected: introspect all tables for current engine
+          try {
+            const cfg = localStorage.getItem("schemaai_db_config");
+            let type = "PostgreSQL";
+            let name = "Active Database";
+            if (cfg) {
+              const parsed = JSON.parse(cfg);
+              if (parsed && typeof parsed === "object") {
+                type = parsed.dbType || "PostgreSQL";
+                name = (parsed.databaseName === "production_core_db" ? "" : (parsed.databaseName || parsed.sqlitePath)) || `${type} Database`;
+              }
+            }
+            setCurrentDbType(type);
+            setActiveDbName(name);
+
+            // Read live introspected schema strictly from connected database
+            let customTables: TableNodeData[] = [];
+            let customFks: { from: string; to: string; label: string }[] = [];
+            const savedSchema = localStorage.getItem("schemaai_introspected_schema");
+            if (savedSchema) {
+              try {
+                const parsed = JSON.parse(savedSchema);
+                if (parsed && Array.isArray(parsed.tables)) {
+                  customTables = parsed.tables;
+                  customFks = parsed.fks || [];
+                }
+              } catch (_) {}
+            }
+
+            const result = getIntrospectedSchema(type, customTables, customFks);
+            setNodes(result.nodes);
+            setEdges(result.edges);
+          } catch (e) {
+            console.error("Error loading introspected schema:", e);
+          }
+        }
+      }
+    };
+
+    updateSchemaState();
+
+    window.addEventListener("schemaai_db_changed", updateSchemaState);
+    window.addEventListener("storage", updateSchemaState);
+    return () => {
+      window.removeEventListener("schemaai_db_changed", updateSchemaState);
+      window.removeEventListener("storage", updateSchemaState);
+    };
+  }, [setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) =>
@@ -47,11 +117,11 @@ export const SchemaCanvas: React.FC = () => {
     [setEdges]
   );
 
-  // Filter nodes according to search term
+  // Filter nodes based on search query
   const filteredNodes = useMemo(() => {
     if (!searchQuery.trim()) {
-      return nodes.map((n) => ({
-        ...n,
+      return nodes.map((node) => ({
+        ...node,
         style: { opacity: 1 },
       }));
     }
@@ -71,8 +141,28 @@ export const SchemaCanvas: React.FC = () => {
   }, [nodes, searchQuery]);
 
   const handleResetLayout = () => {
-    setNodes(initialTables);
-    setEdges(initialEdges);
+    if (isDbConnected) {
+      let customTables: TableNodeData[] = [];
+      let customFks: { from: string; to: string; label: string }[] = [];
+      if (typeof window !== "undefined") {
+        const savedSchema = localStorage.getItem("schemaai_introspected_schema");
+        if (savedSchema) {
+          try {
+            const parsed = JSON.parse(savedSchema);
+            if (parsed && Array.isArray(parsed.tables)) {
+              customTables = parsed.tables;
+              customFks = parsed.fks || [];
+            }
+          } catch (_) {}
+        }
+      }
+      const result = getIntrospectedSchema(currentDbType, customTables, customFks);
+      setNodes(result.nodes);
+      setEdges(result.edges);
+    } else {
+      setNodes([]);
+      setEdges([]);
+    }
     setSearchQuery("");
   };
 
@@ -135,10 +225,50 @@ export const SchemaCanvas: React.FC = () => {
       {/* Top Right Quick Database Info Pill */}
       <div className="absolute top-4 right-4 z-20 hidden md:flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-[#1c1917]/90 backdrop-blur-xl border border-[#292524] shadow-xl text-xs text-stone-300">
         <Database className="w-4 h-4 text-[#3ecf8e]" />
-        <span className="font-semibold text-stone-100">production_core_db</span>
+        <span className="font-semibold text-stone-100">{activeDbName}</span>
         <span className="text-stone-700">•</span>
-        <span className="font-mono text-[11px] text-[#3ecf8e]">Live Schema Introspected</span>
+        <span className="font-mono text-[11px] text-[#3ecf8e]">
+          {isDbConnected ? "Live Schema Introspected" : "Disconnected"}
+        </span>
       </div>
+
+      {/* Disconnected Empty State Overlay */}
+      {!isDbConnected && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-[#121110]/95 backdrop-blur-sm text-center select-none">
+          <div className="w-16 h-16 rounded-3xl bg-[#1c1917] border border-[#292524] flex items-center justify-center mb-4 shadow-xl">
+            <Unplug className="w-8 h-8 text-amber-400 animate-pulse" />
+          </div>
+          <h3 className="text-lg font-bold text-stone-100 tracking-tight mb-2">
+            No Database Connected
+          </h3>
+          <p className="text-xs sm:text-sm text-stone-400 max-w-md mb-6 leading-relaxed">
+            The database connection is disconnected. Connect a database to introspect all tables, column schemas, and relational foreign keys in this canvas.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("schemaai_open_settings"))}
+            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#38bdf8] to-[#0284c7] hover:from-[#60a5fa] hover:to-[#2563eb] text-slate-950 font-bold text-xs shadow-lg shadow-sky-500/20 transition-all cursor-pointer"
+          >
+            <Zap className="w-4 h-4 text-slate-950" />
+            <span>Connect Database</span>
+          </button>
+        </div>
+      )}
+
+      {/* Connected but 0 Tables Found in User Database */}
+      {isDbConnected && nodes.length === 0 && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center select-none pointer-events-none">
+          <div className="w-14 h-14 rounded-2xl bg-[#1c1917] border border-[#292524] flex items-center justify-center mb-3 shadow-xl">
+            <Layers className="w-7 h-7 text-stone-500" />
+          </div>
+          <h3 className="text-base font-bold text-stone-200 mb-1">
+            0 Tables Found in {activeDbName}
+          </h3>
+          <p className="text-xs text-stone-400 max-w-sm">
+            Connected successfully to your database, but no public tables exist yet. Tables created in your database will appear here live.
+          </p>
+        </div>
+      )}
 
       {/* React Flow Graph Surface */}
       <ReactFlow

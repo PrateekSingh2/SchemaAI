@@ -4,14 +4,36 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/Topbar";
 import { LogsView } from "@/components/AuditLogs/LogsView";
-import { initialAuditLogs, AuditLogEntry } from "@/lib/mockData";
+import { AuditLogEntry } from "@/lib/mockData";
 import { useAuth } from "@/context/AuthContext";
 import { Database, Loader2 } from "lucide-react";
 
 export default function LogsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [logs, setLogs] = useState<AuditLogEntry[]>(initialAuditLogs);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+
+  useEffect(() => {
+    const loadLogs = () => {
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("schemaai_audit_logs");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              setLogs(parsed);
+              return;
+            }
+          }
+        } catch (_) {}
+        setLogs([]);
+      }
+    };
+
+    loadLogs();
+    window.addEventListener("schemaai_audit_logs_changed", loadLogs);
+    return () => window.removeEventListener("schemaai_audit_logs_changed", loadLogs);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,7 +62,19 @@ export default function LogsPage() {
   }
 
   const handleRefresh = () => {
-    setLogs([...initialAuditLogs]);
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("schemaai_audit_logs");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setLogs(parsed);
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+    setLogs([]);
   };
 
   return (
