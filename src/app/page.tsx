@@ -92,17 +92,47 @@ export default function QueryStudioPage() {
   // Database Connection State (Must be configured before executing prompts)
   const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
 
+  // Database config
+  const [dbConfig, setDbConfig] = useState({
+    dbType: "",
+    databaseName: "",
+    enableQueryGuard: true,
+    llmProvider: "openai",
+  });
+
   useEffect(() => {
     const checkDbStatus = () => {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("schemaai_db_connected");
-        setIsDbConnected(stored === "true");
+        const isConn = stored === "true";
+        setIsDbConnected(isConn);
+        try {
+          const cfg = localStorage.getItem("schemaai_db_config");
+          if (cfg) {
+            const parsed = JSON.parse(cfg);
+            if (parsed && typeof parsed === "object") {
+              const cleanedDbName =
+                parsed.databaseName === "production_core_db"
+                  ? ""
+                  : parsed.databaseName || parsed.sqlitePath || "";
+              setDbConfig((prev) => ({
+                ...prev,
+                dbType: parsed.dbType || prev.dbType,
+                databaseName: cleanedDbName,
+              }));
+            }
+          }
+        } catch (_) {}
       }
     };
     checkDbStatus();
 
     window.addEventListener("schemaai_db_changed", checkDbStatus);
-    return () => window.removeEventListener("schemaai_db_changed", checkDbStatus);
+    window.addEventListener("storage", checkDbStatus);
+    return () => {
+      window.removeEventListener("schemaai_db_changed", checkDbStatus);
+      window.removeEventListener("storage", checkDbStatus);
+    };
   }, []);
 
   // Redirect unauthenticated visitors to /login immediately
@@ -131,14 +161,6 @@ export default function QueryStudioPage() {
     columns: [],
     records: [],
     executionTime: 30,
-  });
-
-  // Database config
-  const [dbConfig, setDbConfig] = useState({
-    dbType: "PostgreSQL",
-    databaseName: "production_core_db",
-    enableQueryGuard: true,
-    llmProvider: "openai",
   });
 
   // Query Studio state with safe persistent cache so prompt is never lost
@@ -535,13 +557,14 @@ export default function QueryStudioPage() {
     <div className="h-screen-dvh w-screen overflow-hidden bg-[#0e0e11] text-[#f4f4f5] flex flex-col font-sans select-none antialiased">
       {/* Top Navbar */}
       <Topbar
-        dbName={isDbConnected ? dbConfig.databaseName : "Not Connected"}
-        dbType={isDbConnected ? dbConfig.dbType : "Database"}
+        dbName={isDbConnected ? (dbConfig.databaseName || undefined) : undefined}
+        dbType={isDbConnected ? (dbConfig.dbType || undefined) : undefined}
         isConnected={isDbConnected}
         onDisconnect={() => {
           setIsDbConnected(false);
           if (typeof window !== "undefined") {
             localStorage.setItem("schemaai_db_connected", "false");
+            window.dispatchEvent(new Event("schemaai_db_changed"));
           }
         }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
@@ -640,7 +663,7 @@ export default function QueryStudioPage() {
                         executionTime={turn.executionTime}
                         tokens={turn.tokens}
                         cost={turn.cost}
-                        dialect={`${dbConfig.dbType} 16`}
+                        dialect={dbConfig.dbType === "MongoDB" ? "MongoDB MQL" : `${dbConfig.dbType || "PostgreSQL"} 16`}
                       />
                     </div>
 

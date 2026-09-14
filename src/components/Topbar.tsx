@@ -25,6 +25,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
+import { SettingsModal } from "@/components/SettingsModal";
+
 interface TopbarProps {
   dbName?: string;
   dbType?: string;
@@ -36,8 +38,8 @@ interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
-  dbName = "production_core_db",
-  dbType = "PostgreSQL",
+  dbName: propDbName,
+  dbType: propDbType,
   isConnected: propIsConnected,
   isLayoutCustomized = false,
   onResetLayout,
@@ -47,33 +49,65 @@ export const Topbar: React.FC<TopbarProps> = ({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, signOutUser } = useAuth();
-  const [internalConnected, setInternalConnected] = useState<boolean>(true);
+  const [internalConnected, setInternalConnected] = useState<boolean>(false);
+  const [internalDbName, setInternalDbName] = useState<string>("");
+  const [internalDbType, setInternalDbType] = useState<string>("");
+
+  const handleOpenSettingsModal = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (onOpenSettings) {
+      onOpenSettings();
+    } else {
+      setIsSettingsOpen(true);
+    }
+  };
 
   // Sync internal state with localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("schemaai_db_connected");
-      if (stored !== null) {
-        setInternalConnected(stored === "true");
-      }
-    }
-
     const handleStorageChange = () => {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("schemaai_db_connected");
-        if (stored !== null) {
-          setInternalConnected(stored === "true");
-        }
+        const isConn = stored === "true";
+        setInternalConnected(isConn);
+        try {
+          const cfg = localStorage.getItem("schemaai_db_config");
+          if (cfg) {
+            const parsed = JSON.parse(cfg);
+            if (parsed && typeof parsed === "object") {
+              setInternalDbType(parsed.dbType || "");
+              setInternalDbName(
+                parsed.databaseName === "production_core_db"
+                  ? ""
+                  : parsed.databaseName || parsed.sqlitePath || ""
+              );
+            }
+          }
+        } catch (_) {}
       }
     };
 
+    handleStorageChange();
+
+    const handleGlobalOpenSettings = () => {
+      handleOpenSettingsModal();
+    };
+
     window.addEventListener("schemaai_db_changed", handleStorageChange);
-    return () => window.removeEventListener("schemaai_db_changed", handleStorageChange);
-  }, []);
+    window.addEventListener("schemaai_open_settings", handleGlobalOpenSettings);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("schemaai_db_changed", handleStorageChange);
+      window.removeEventListener("schemaai_open_settings", handleGlobalOpenSettings);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [onOpenSettings]);
 
   const isConnected = propIsConnected !== undefined ? propIsConnected : internalConnected;
+  const currentDbType = (propDbType && propDbType !== "Database" ? propDbType : internalDbType) || (isConnected ? "Database" : "Database");
+  const currentDbName = propDbName || internalDbName || (isConnected ? (currentDbType ? `${currentDbType} Database` : "Connected") : "Not Connected");
 
   const handleDisconnect = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -205,11 +239,11 @@ export const Topbar: React.FC<TopbarProps> = ({
               />
             </div>
             <span className="text-zinc-200 font-mono font-medium">
-              {isConnected ? dbType : "Database"}
+              {isConnected ? currentDbType : "Database"}
             </span>
             <span className="text-zinc-600">•</span>
             <span className="font-mono text-zinc-400 truncate max-w-[130px]">
-              {isConnected ? dbName : "Not Connected"}
+              {isConnected ? (currentDbName || "Connected") : "Not Connected"}
             </span>
 
             {/* Disconnect or Connect Button directly beside the database name */}
@@ -226,10 +260,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenSettings?.();
-                }}
+                onClick={handleOpenSettingsModal}
                 className="ml-1.5 flex items-center space-x-1 px-2 py-0.5 rounded-md bg-[#38bdf8]/10 hover:bg-[#38bdf8]/20 border border-[#38bdf8]/25 text-[#38bdf8] text-[11px] font-medium transition-all cursor-pointer select-none"
                 title="Open Settings to connect a database"
               >
@@ -275,6 +306,17 @@ export const Topbar: React.FC<TopbarProps> = ({
                       {user.email || "Authenticated via Google"}
                     </p>
                   </div>
+
+                  <button
+                    onClick={(e) => {
+                      setUserDropdownOpen(false);
+                      handleOpenSettingsModal(e);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Database Settings</span>
+                  </button>
 
                   <button
                     onClick={() => {
@@ -362,14 +404,14 @@ export const Topbar: React.FC<TopbarProps> = ({
                   )}
                 />
                 <span className="font-mono text-[#38bdf8] font-medium">
-                  {isConnected ? dbType : "Database"}
+                  {isConnected ? currentDbType : "Database"}
                 </span>
                 <span className="text-zinc-500">•</span>
                 <span className="font-mono text-zinc-300 text-xs">
-                  {isConnected ? dbName : "Not Connected"}
+                  {isConnected ? (currentDbName || "Connected") : "Not Connected"}
                 </span>
               </div>
-              {isConnected && (
+              {isConnected ? (
                 <button
                   type="button"
                   onClick={handleDisconnect}
@@ -378,10 +420,34 @@ export const Topbar: React.FC<TopbarProps> = ({
                   <Unplug className="w-3.5 h-3.5 text-rose-400" />
                   <span>Disconnect</span>
                 </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    setMobileMenuOpen(false);
+                    handleOpenSettingsModal(e);
+                  }}
+                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#38bdf8]/10 hover:bg-[#38bdf8]/20 border border-[#38bdf8]/25 text-[#38bdf8] text-xs font-medium cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>Connect</span>
+                </button>
               )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Standalone Settings Modal for routes that do not supply onOpenSettings */}
+      {!onOpenSettings && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onSave={() => {
+            setIsSettingsOpen(false);
+            setInternalConnected(true);
+          }}
+        />
       )}
     </>
   );
