@@ -177,7 +177,7 @@ export default function QueryStudioPage() {
       const provider = activeModel ? activeModel.provider : "openai";
       const apiKey = activeModel ? activeModel.apiKey : "";
 
-      const response = await fetch("/api/generate-sql", {
+      const response = await fetch("http://localhost:8000/api/v1/agent/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -185,6 +185,7 @@ export default function QueryStudioPage() {
           llmProvider: provider,
           llmApiKey: apiKey,
           dbType: dbConfig.dbType,
+          connectionUri: dbConfig.connectionUri,
         }),
       });
 
@@ -316,9 +317,36 @@ export default function QueryStudioPage() {
       prev.map((t) => (t.id === turnId ? { ...t, isExecuting: true } : t))
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const startTime = performance.now();
+    let records: any[] = [];
+    let columns: string[] = [];
 
-    const mockOutput = generateMockResult(promptToCheck, turn.queryFormat);
+    try {
+      const response = await fetch("http://localhost:8000/api/v1/agent/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sql: queryToExecute,
+          connectionUri: dbConfig.connectionUri,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        records = data.records || [];
+        columns = data.columns || [];
+      } else {
+        console.error("Execute error:", await response.text());
+        records = [{ error: "Execution failed" }];
+        columns = ["error"];
+      }
+    } catch (err) {
+      console.error("Network error:", err);
+      records = [{ error: "Network error" }];
+      columns = ["error"];
+    }
+
+    const executionTimeMs = performance.now() - startTime;
 
     // Update turn state
     setActiveTurns((prev) =>
@@ -328,9 +356,9 @@ export default function QueryStudioPage() {
               ...t,
               hasRun: true,
               isExecuting: false,
-              records: mockOutput.records,
-              columns: mockOutput.columns,
-              executionTime: mockOutput.executionTime,
+              records: records,
+              columns: columns,
+              executionTime: executionTimeMs,
             }
           : t
       )
@@ -339,9 +367,9 @@ export default function QueryStudioPage() {
     // Automatically open popup modal for fetched output
     setModalOutputData({
       isOpen: true,
-      columns: mockOutput.columns,
-      records: mockOutput.records,
-      executionTime: mockOutput.executionTime,
+      columns: columns,
+      records: records,
+      executionTime: executionTimeMs,
       tableName: dbConfig.databaseName,
     });
 
@@ -353,7 +381,7 @@ export default function QueryStudioPage() {
             ? {
                 ...op,
                 status: "executed",
-                rowCount: mockOutput.records.length,
+                rowCount: records.length,
               }
             : op
         )

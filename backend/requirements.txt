@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+langchain
+langgraph
+langchain-google-genai
+langchain-nvidia-ai-endpoints
+sqlalchemy
+pymysql
+pydantic
+python-dotenv
