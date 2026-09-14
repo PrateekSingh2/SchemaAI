@@ -176,14 +176,20 @@ export default function QueryStudioPage() {
       const activeModel = dbConfig.savedModels.find(m => m.id === dbConfig.activeModelId);
       const provider = activeModel ? activeModel.provider : "openai";
       const apiKey = activeModel ? activeModel.apiKey : "";
+      const modelId = activeModel ? activeModel.modelId : "";
 
-      const response = await fetch("http://localhost:8000/api/v1/agent/command", {
+      if (!apiKey) {
+        throw new Error("No AI Model selected. Please click 'Add AI Model' in the chat bar below to select or add a model.");
+      }
+
+      const response = await fetch("http://127.0.0.1:8000/api/v1/agent/command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: promptText,
           llmProvider: provider,
           llmApiKey: apiKey,
+          llmModel: modelId,
           dbType: dbConfig.dbType,
           connectionUri: dbConfig.connectionUri,
         }),
@@ -218,12 +224,13 @@ export default function QueryStudioPage() {
       } else {
         const errorData = await response.json().catch(() => ({}));
         responseType = "text";
-        generatedText = `⚠️ Error: ${errorData.error || response.statusText}`;
+        const errorMessage = errorData.detail || errorData.error || response.statusText;
+        generatedText = `⚠️ Error: ${errorMessage}`;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Fetch error:", error);
       responseType = "text";
-      generatedText = `⚠️ Network or Server Error: ${String(error)}`;
+      generatedText = `⚠️ ${error.message || "Network or Server Error"}`;
     }
 
     const executionTimeMs = performance.now() - startTime;
@@ -322,7 +329,7 @@ export default function QueryStudioPage() {
     let columns: string[] = [];
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/agent/execute", {
+      const response = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

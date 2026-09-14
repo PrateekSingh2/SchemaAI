@@ -12,6 +12,9 @@ from sqlalchemy.exc import SQLAlchemyError
 db_engines = {}
 
 def get_engine(connection_uri: str):
+    if connection_uri.startswith("mysql://"):
+        connection_uri = connection_uri.replace("mysql://", "mysql+pymysql://", 1)
+    
     if connection_uri not in db_engines:
         db_engines[connection_uri] = create_engine(connection_uri, pool_pre_ping=True)
     return db_engines[connection_uri]
@@ -19,8 +22,11 @@ def get_engine(connection_uri: str):
 # We need a way to pass the connection URI into the tool, but LangGraph tools don't natively take dynamic contextual config easily without passing it through the LLM. 
 # As a workaround for this demo, we'll store the current DB URI globally or let the LLM pass it, but better is to use `injected` arguments if using newer LangChain.
 # For simplicity, we'll store it globally per request in a thread-local or just a global var since it's a local demo.
-import threading
-request_context = threading.local()
+# For simplicity, we'll store it globally per request since it's a local demo.
+class RequestContext:
+    connection_uri = ""
+
+request_context = RequestContext()
 
 @tool
 def execute_sql(query: str) -> str:
@@ -74,19 +80,23 @@ def apply_data_masking(columns: List[str]) -> str:
     """
     return f"Successfully applied data masking to: {', '.join(columns)}"
 
-def create_agent(llm_provider: str, llm_api_key: str):
+def create_agent(llm_provider: str, llm_api_key: str, llm_model: str = "", db_type: str = "PostgreSQL"):
     """Creates a LangGraph agent based on the provider and key."""
     tools = [execute_sql, render_visualization, apply_data_masking]
     
     if llm_provider == "openai":
-        # Usually implies NVIDIA here due to our frontend mapping, but let's check
-        llm = ChatNVIDIA(model="nvidia/nemotron-3-super-120b-a12b", api_key=llm_api_key)
+        from langchain_openai import ChatOpenAI
+        model_name = llm_model if llm_model else "gpt-4o"
+        llm = ChatOpenAI(model=model_name, api_key=llm_api_key)
     elif llm_provider == "nvidia":
-        llm = ChatNVIDIA(model="nvidia/nemotron-3-super-120b-a12b", api_key=llm_api_key)
-    elif llm_provider == "google":
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=llm_api_key)
+        model_name = llm_model if llm_model else "meta/llama-3.1-70b-instruct"
+        llm = ChatNVIDIA(model=model_name, api_key=llm_api_key, base_url="https://integrate.api.nvidia.com/v1")
+    elif llm_provider in ["google", "gemini"]:
+        model_name = llm_model if llm_model else "gemini-1.5-flash"
+        llm = ChatGoogleGenerativeAI(model=model_name, api_key=llm_api_key)
     else:
         raise ValueError(f"Unsupported provider: {llm_provider}")
-    
+    # We will let the invoker handle the system prompt to avoid version compatibility issues
+    # Create the agent
     agent_executor = create_react_agent(llm, tools)
     return agent_executor

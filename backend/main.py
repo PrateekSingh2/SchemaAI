@@ -19,8 +19,9 @@ class CommandRequest(BaseModel):
     prompt: str
     llmProvider: str
     llmApiKey: str
+    llmModel: str = ""
     dbType: str
-    connectionUri: str = ""
+    connectionUri: str
 
 @app.post("/api/v1/agent/command")
 async def run_command(req: CommandRequest):
@@ -28,35 +29,42 @@ async def run_command(req: CommandRequest):
         raise HTTPException(status_code=400, detail="Missing API Key")
 
     try:
-        # Set the connection URI in the request context so tools can access it
+        # Store connection context globally for the tool to access
         agent.request_context.connection_uri = req.connectionUri
 
         # Create the LangGraph agent executor
-        agent_executor = agent.create_agent(req.llmProvider, req.llmApiKey)
+        agent_executor = agent.create_agent(req.llmProvider, req.llmApiKey, req.llmModel, req.dbType)
         
+        system_prompt = (
+            f"You are a helpful AI database assistant. You are currently connected to a user's {req.dbType} database. "
+            "If the user asks if the database is connected, or asks to see data, you MUST use the execute_sql tool "
+            f"to run a query (like 'SELECT 1;' or 'SHOW TABLES;') specific to {req.dbType} "
+            "to prove that you can connect and fetch data. Do not say you are not connected without trying first!"
+        )
+
         # Invoke the agent
         response = agent_executor.invoke({
-            "messages": [("user", req.prompt)]
+            "messages": [
+                ("system", system_prompt),
+                ("user", req.prompt)
+            ]
         })
         
         # LangGraph returns a dict with "messages". The last message is the AI's final response.
         final_message = response["messages"][-1].content
         
         # We need to format the response to match what the Next.js frontend expects
-        # The frontend currently expects: { type: "sql", content: "..." } or { type: "text", content: "..." }
         
-        # Since this is a simple AI response, we'll try to extract SQL if present
-        # In a real app, you'd use structured output or a specific parser
-        if "SELECT" in final_message.upper() or "UPDATE" in final_message.upper():
-            # Very naive extraction for demo purposes
-            sql_match = final_message
-            if "```sql" in final_message:
-                sql_match = final_message.split("```sql")[1].split("```")[0].strip()
-            elif "```" in final_message:
-                sql_match = final_message.split("```")[1].split("```")[0].strip()
-                
+        # Look for explicit SQL code blocks first
+        if "```sql" in final_message.lower():
+            sql_match = final_message.lower().split("```sql")[1].split("```")[0].strip()
             return {"type": "sql", "content": sql_match, "raw_response": final_message}
         
+        # If it doesn't have a code block but starts with SELECT, treat it as SQL
+        clean_msg = final_message.strip().upper()
+        if clean_msg.startswith("SELECT ") or clean_msg.startswith("UPDATE ") or clean_msg.startswith("SHOW ") or clean_msg.startswith("DESCRIBE "):
+            return {"type": "sql", "content": final_message.strip(), "raw_response": final_message}
+            
         return {"type": "text", "content": final_message}
         
     except Exception as e:

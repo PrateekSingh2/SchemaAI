@@ -35,6 +35,7 @@ interface SettingsModalProps {
 export interface SavedModel {
   id: string;
   provider: string; // e.g. 'openai', 'anthropic', 'nvidia'
+  modelId: string; // e.g. 'gpt-4o', 'meta/llama-3.1-70b-instruct'
   name: string; // e.g. 'My OpenAI Key', 'Llama 3 70B'
   apiKey: string;
 }
@@ -93,15 +94,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // New Model Form State
   const [newModelProvider, setNewModelProvider] = useState("openai");
+  const [newModelId, setNewModelId] = useState("");
   const [newModelName, setNewModelName] = useState("");
   const [newModelApiKey, setNewModelApiKey] = useState("");
 
   const handleAddSavedModel = () => {
-    if (!newModelName.trim() || !newModelApiKey.trim()) return;
+    if (!newModelName.trim() || !newModelApiKey.trim() || !newModelId.trim()) return;
     
     const newModel: SavedModel = {
       id: `model-${Date.now()}`,
       provider: newModelProvider,
+      modelId: newModelId.trim(),
       name: newModelName.trim(),
       apiKey: newModelApiKey.trim(),
     };
@@ -475,7 +478,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           />
                           <div>
                             <p className="text-sm font-medium text-zinc-200">{model.name}</p>
-                            <p className="text-xs text-zinc-500 capitalize">{model.provider} • {model.apiKey.substring(0, 4)}...{model.apiKey.substring(model.apiKey.length - 4)}</p>
+                            <p className="text-xs text-zinc-500 capitalize">{model.provider} • {model.modelId} • {model.apiKey.substring(0, 4)}...{model.apiKey.substring(model.apiKey.length - 4)}</p>
                           </div>
                         </div>
                         <button 
@@ -514,15 +517,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-zinc-400">Model Name (e.g., GPT-4o)</label>
+                    <label className="text-xs font-medium text-zinc-400">Display Name</label>
                     <input
                       type="text"
                       value={newModelName}
                       onChange={(e) => setNewModelName(e.target.value)}
-                      placeholder="My GPT-4o"
+                      placeholder="e.g. My GPT-4o"
                       className="w-full px-3 py-2 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-400">Model ID</label>
+                  <input
+                    type="text"
+                    value={newModelId}
+                    onChange={(e) => setNewModelId(e.target.value)}
+                    placeholder="e.g. gpt-4o, meta/llama-3.1-70b-instruct"
+                    className="w-full px-3 py-2 rounded-xl bg-[#1b1b20] border border-[#26262b] text-sm text-zinc-200 focus:outline-none focus:border-[#38bdf8] transition-colors"
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -555,7 +569,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddSavedModel}
-                  disabled={!newModelName.trim() || !newModelApiKey.trim()}
+                  disabled={!newModelName.trim() || !newModelApiKey.trim() || !newModelId.trim()}
                   className="w-full py-2 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-medium text-zinc-200 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/[0.06]"
                 >
                   Save Model Key
