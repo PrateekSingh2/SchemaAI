@@ -25,7 +25,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn, BACKEND_URL } from "@/lib/utils";
 import { DatabaseConfig } from "@/components/SettingsModal";
 import { DatabaseEngineType } from "@/lib/dbValidation";
 
@@ -243,7 +243,7 @@ export default function SettingsPage() {
   const handleSaveAndIntrospect = async () => {
     setIsSaving(true);
     try {
-      fetch("http://127.0.0.1:8000/api/v1/agent/reset-connection", { method: "POST" }).catch(() => {});
+      fetch(`${BACKEND_URL}/api/v1/agent/reset-connection`, { method: "POST" }).catch(() => {});
       const payload = buildServerlessPayload();
       const res = await fetch("/api/database/connect", {
         method: "POST",

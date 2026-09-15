@@ -21,7 +21,7 @@ import {
   Server,
   XCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, BACKEND_URL } from "@/lib/utils";
 import { DatabaseEngineType } from "@/lib/dbValidation";
 
 interface SettingsModalProps {
@@ -333,7 +333,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsSaving(true);
     try {
       // Clean backend cache
-      fetch("http://127.0.0.1:8000/api/v1/agent/reset-connection", { method: "POST" }).catch(() => {});
+      fetch(`${BACKEND_URL}/api/v1/agent/reset-connection`, { method: "POST" }).catch(() => {});
 
       const payload = buildServerlessPayload();
       const res = await fetch("/api/database/connect", {

@@ -9,10 +9,11 @@ A modern developer workbench featuring AI-assisted query generation, interactive
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178c6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38bdf8?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![React Flow](https://img.shields.io/badge/React_Flow-12.0-ff0072?style=for-the-badge&logo=react)](https://reactflow.dev/)
-[![pnpm](https://img.shields.io/badge/pnpm-11.0+-f69220?style=for-the-badge&logo=pnpm)](https://pnpm.io/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Netlify](https://img.shields.io/badge/Netlify-Ready-00c7b7?style=for-the-badge&logo=netlify)](https://www.netlify.com/)
+[![Render](https://img.shields.io/badge/Render-Backend-46E3B7?style=for-the-badge&logo=render)](https://render.com/)
 
-[**Explore Live Demo**](#-getting-started) • [**Features**](#-features) • [**Installation Guide**](#-step-by-step-setup-guide) • [**Deploy to Netlify**](#-deployment)
+[**Explore Features**](#-features) • [**Local Installation Guide**](#-step-by-step-local-setup-guide) • [**Deploy to Render & Netlify**](#-production-deployment-guide)
 
 </div>
 
@@ -20,7 +21,7 @@ A modern developer workbench featuring AI-assisted query generation, interactive
 
 ## 🌟 Overview
 
-**SchemaAI** bridges the gap between natural language prompts and high-performance database queries. Built on Next.js 14+ App Router, it provides a unified developer cockpit to inspect database entity-relationship graphs, convert plain English into optimized SQL or GraphQL queries, inspect execution telemetry, and safeguard production databases with cryptographic mutation interception.
+**SchemaAI** bridges the gap between natural language prompts and high-performance database queries. Built on Next.js 16+ App Router and FastAPI, it provides a unified developer cockpit to inspect database entity-relationship graphs, convert plain English into optimized SQL, MongoDB, or GraphQL queries, inspect execution telemetry, and safeguard production databases with zero-trust mutation guardrails.
 
 ---
 
@@ -29,9 +30,9 @@ A modern developer workbench featuring AI-assisted query generation, interactive
 ### 1. ⚡ Query Studio (`/`)
 - **Zero-Page-Scroll Viewport**: Strictly fitted to `100vh` without full-page scrollbars.
 - **Split Code & Data Panes**:
-  - **SQL / GraphQL Editor**: Syntax-highlighted code editor with line numbering, copy button, dialect toggles, and live telemetry micro-badges (Latency, Tokens, Cost, AST Safety).
+  - **SQL / MongoDB / GraphQL Editor**: Syntax-highlighted code editor with line numbering, copy button, dialect toggles, and live telemetry micro-badges (Latency, Tokens, Cost, AST Safety).
   - **Spreadsheet Data Grid**: In-table quick search, sticky blurred headers, column sort indicators, and one-click export to **CSV** and **JSON**.
-- **Docked Natural Language Command Bar**: Preset suggestion pills for Analytics, Performance queries, GraphQL schemas, and destructive Mutation testing with `⌘/Ctrl + Enter` execution shortcut.
+- **Docked Natural Language Command Bar**: Voice dictation, custom AI Model selector, connected database indicator, and preset suggestion pills.
 
 ### 2. 🕸️ Interactive Schema Explorer (`/schema`)
 - **Graph Visualizer**: Built with `@xyflow/react` over a warm dot-grid canvas.
@@ -49,141 +50,153 @@ A modern developer workbench featuring AI-assisted query generation, interactive
 - **Search & Filter**: Segmented status filters and click-to-inspect audit modal.
 
 ### 5. ⚙️ Configuration & Connection Portal (`/settings`)
-- Dedicated portal with tabbed configuration for **Database Connection** (PostgreSQL, Supabase, MySQL, Neon, CockroachDB, SQLite), **AI Model Engine** (OpenAI GPT-4o, Claude 3.5 Sonnet), **Mutation Guard Rails**, and **PgBouncer Connection Pooling**.
+- Tabbed configuration for **Database Connection** (PostgreSQL, Supabase, MySQL, MongoDB Atlas, Neon, CockroachDB, SQLite), **AI Model Engine** (Google Gemini, OpenAI GPT-4o, Anthropic Claude, NVIDIA NIM, DeepSeek, Ollama), **Mutation Guard Rails**, and **PgBouncer Connection Pooling**.
 - Integrated **Test Connection Handshake** with roundtrip latency telemetry.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [Next.js 16+ (App Router)](https://nextjs.org/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Frontend**: [Next.js 16+ (App Router)](https://nextjs.org/), [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/)
+- **Backend API**: [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/), [LangChain / LangGraph](https://www.langchain.com/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Graph Engine**: [@xyflow/react (React Flow)](https://reactflow.dev/)
+- **Authentication**: [Firebase Auth](https://firebase.google.com/)
 - **Package Manager**: [pnpm](https://pnpm.io/)
-- **Theme**: Supabase-inspired warm dark/brown palette (`#121110`, `#171412`, `#1c1917`) with emerald `#3ecf8e` accents and glassmorphism.
 
 ---
 
-## 📦 Step-by-Step Setup Guide
+## 📦 Step-by-Step Local Setup Guide
 
 Follow these instructions to clone, install, and run **SchemaAI** on your local machine.
 
 ### Step 1: Install Prerequisites
 
-Ensure you have **Node.js (v18.17+ or v20+)** and **pnpm** installed on your system.
+Ensure you have **Node.js (v18.17+ or v20+)**, **pnpm**, and **Python (v3.10+)** installed on your system.
 
-#### Install Node.js:
-- **Windows / macOS / Linux**: Download from [nodejs.org](https://nodejs.org/) (LTS version recommended).
-- **macOS via Homebrew**:
-  ```bash
-  brew install node
-  ```
-- **Windows via Winget / Chocolatey**:
-  ```powershell
-  winget install OpenJS.NodeJS.LTS
-  # or
-  choco install nodejs-lts
-  ```
-
-#### Install pnpm:
-If you do not have `pnpm` installed, enable it via Node.js `corepack` or install globally via `npm`:
 ```bash
-# Enable Corepack (recommended)
+# Enable pnpm via Corepack
 corepack enable
 corepack prepare pnpm@latest --activate
 
-# Or install via npm
-npm install -g pnpm
-```
-
-Verify your installation:
-```bash
-node -v   # Should output v18.x, v20.x, or v22.x
-pnpm -v   # Should output 9.x or 11.x
-git --version
+# Verify versions
+node -v
+pnpm -v
+python --version
 ```
 
 ---
 
-### Step 2: Clone or Fork the Repository
+### Step 2: Clone the Repository
 
 ```bash
-# Clone the repository
 git clone https://github.com/PrateekSingh2/SchemaAI.git
-
-# Navigate into the project folder
 cd SchemaAI
 ```
 
 ---
 
-### Step 3: Install Project Dependencies
+### Step 3: Install Dependencies
 
-1. **Frontend Dependencies** (Next.js)
-Install all required packages using `pnpm`:
-
+#### 1. Frontend Dependencies:
 ```bash
 pnpm install
 ```
 
-2. **Backend Dependencies** (Python/FastAPI)
-Set up a Python virtual environment and install the backend requirements:
-
+#### 2. Backend Dependencies:
 ```bash
 cd backend
 python -m venv .venv
-# On Windows: .venv\Scripts\activate
-# On Mac/Linux: source .venv/bin/activate
+
+# On Windows:
+.venv\Scripts\activate
+# On macOS / Linux:
+source .venv/bin/activate
+
 pip install -r requirements.txt
 cd ..
 ```
 
 ---
 
-### Step 4: Run the Development Servers
+### Step 4: Run Development Servers
 
-You can run both the frontend and backend concurrently or in separate terminals:
+Run both the frontend and backend in separate terminals:
 
-#### Option A: Running in Two Terminals (Recommended for Development)
-
-1. **Terminal 1 — Next.js Frontend** (Port `3000`):
-   ```bash
-   pnpm dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-2. **Terminal 2 — FastAPI Python Backend** (Port `8000`):
-   ```bash
-   pnpm backend
-   # Or directly with Python:
-   python -m uvicorn main:app --app-dir backend --reload --port 8000
-   ```
-   The backend API documentation is available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
-
----
-
-### Step 5: Configure AI & Database Connections
-
-1. Open [http://localhost:3000/settings](http://localhost:3000/settings) in your browser.
-2. Choose your **AI Model Engine** (e.g., Google Gemini, OpenAI GPT-4o, Anthropic Claude, or NVIDIA NIM) and enter your API Key.
-3. Choose your **Database Engine** (PostgreSQL, Supabase, MySQL, MongoDB Atlas, SQLite, Snowflake) and enter your connection credentials / URI.
-4. Click **Test Handshake** to verify real-time connectivity.
-
----
-
-### Step 6: Build for Production
-
-To create an optimized production build:
-
+#### Terminal 1 — Next.js Frontend (Port `3000`):
 ```bash
-# Build the Next.js application with Turbopack
-pnpm build
-
-# Start the production server
-pnpm start
+pnpm dev
 ```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+#### Terminal 2 — FastAPI Python Backend (Port `8000`):
+```bash
+pnpm backend
+# or
+python -m uvicorn main:app --app-dir backend --reload --port 8000
+```
+The backend API docs are live at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+---
+
+## 🌐 Production Deployment Guide
+
+Deploying **SchemaAI** is split into two lightweight services:
+1. **Backend** on [Render](https://render.com) (FastAPI Python API)
+2. **Frontend** on [Netlify](https://netlify.com) (Next.js Application)
+
+---
+
+### Part 1: Deploy Backend to Render
+
+1. Go to [render.com](https://render.com) and log in.
+2. Click **New +** > **Web Service**.
+3. Connect your GitHub repository: `SchemaAI`.
+4. Fill in the service configuration:
+   - **Name**: `schemaai-backend` (or your choice)
+   - **Root Directory**: `backend`
+   - **Runtime**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: `Free`
+5. Click **Create Web Service**.
+6. Once deployed, note your service URL (e.g. `https://schema-ai-vsfi.onrender.com`).
+   - Visiting the root URL (`/`) will display a JSON status check confirming it is online.
+   - Interactive Swagger API docs are accessible at `/docs`.
+
+---
+
+### Part 2: Deploy Frontend to Netlify
+
+1. Go to [netlify.com](https://netlify.com) and log in.
+2. Click **Add new site** > **Import an existing project** > **GitHub**.
+3. Select your `SchemaAI` repository.
+4. Set the build parameters:
+   - **Base directory**: *(Leave empty)*
+   - **Build command**: `pnpm build`
+   - **Publish directory**: `.next`
+5. Under **Environment variables**, add the following keys:
+
+   | Variable Name | Value / Description |
+   | :--- | :--- |
+   | `NEXT_PUBLIC_BACKEND_URL` | Your Render URL (e.g., `https://schema-ai-vsfi.onrender.com`) |
+   | `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Client API Key |
+   | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain |
+   | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase Project ID |
+   | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase Storage Bucket |
+   | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`| Firebase Messaging Sender ID |
+   | `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase Web App ID |
+
+6. Click **Deploy SchemaAI**.
+
+---
+
+### Part 3: Firebase Auth Domain Whitelisting
+
+1. Go to your [Firebase Console](https://console.firebase.google.com/).
+2. Select your project > **Authentication** > **Settings** > **Authorized domains**.
+3. Add your Netlify domain (e.g. `schemaai.netlify.app` or custom domain).
 
 ---
 
@@ -193,8 +206,8 @@ pnpm start
 SchemaAI/
 ├── backend/                        # Python FastAPI AI Agent Backend
 │   ├── agent.py                    # LangGraph / LangChain NL-to-SQL synthesizer
-│   ├── main.py                     # FastAPI REST server & CORS setup
-│   └── requirements.txt            # Python dependencies
+│   ├── main.py                     # FastAPI REST server, health check & CORS setup
+│   └── requirements.txt            # Python dependencies (FastAPI, LangChain, PyMongo, etc.)
 ├── netlify/
 │   └── functions/
 │       └── test-database-connection.ts # Edge serverless database test handler
@@ -202,7 +215,6 @@ SchemaAI/
 ├── package.json                    # Frontend scripts & dependencies
 ├── pnpm-lock.yaml                  # pnpm dependency lockfile
 ├── tsconfig.json                   # TypeScript configuration
-├── WORKFLOW.txt                    # System architecture & workflow documentation
 ├── src/
 │   ├── app/
 │   │   ├── api/
@@ -214,7 +226,7 @@ SchemaAI/
 │   │   ├── schema/page.tsx         # Interactive React Flow schema explorer
 │   │   ├── settings/page.tsx       # Database & AI model configuration page
 │   │   ├── layout.tsx              # Root application layout
-│   │   ├── page.tsx                # Query Studio (Single-page natural language SQL cockpit)
+│   │   ├── page.tsx                # Query Studio (Natural language SQL cockpit)
 │   │   └── globals.css             # Tailwind CSS v4 & theme variables
 │   ├── components/
 │   │   ├── AuditLogs/
@@ -224,8 +236,8 @@ SchemaAI/
 │   │   │   ├── DatabaseRequiredModal.tsx # Connection onboarding warning modal
 │   │   │   ├── OutputResultsModal.tsx # Fullscreen tabular dataset modal
 │   │   │   ├── OutputSummaryBox.tsx   # Inline query summary & result count
-│   │   │   ├── PromptInput.tsx        # Natural language prompt command bar
-│   │   │   ├── RecordsTable.tsx       # Virtualized tabular data grid with CSV/JSON export
+│   │   │   ├── PromptInput.tsx        # Natural language prompt command bar & model selector
+│   │   │   ├── RecordsTable.tsx       # Tabular data grid with CSV/JSON export
 │   │   │   └── SqlOutput.tsx          # Syntax-highlighted SQL/GraphQL code pane
 │   │   ├── SchemaExplorer/
 │   │   │   ├── DocumentNode.tsx    # MongoDB document schema card
@@ -237,48 +249,13 @@ SchemaAI/
 │   ├── context/
 │   │   └── AuthContext.tsx         # Firebase auth & session provider
 │   └── lib/
-│       ├── chatService.ts          # AI query generator & fallback handler
+│       ├── chatService.ts          # AI query generator & Firestore chat persistence
 │       ├── dbValidation.ts         # Multi-database driver connection validator
 │       ├── firebase.ts             # Firebase client initialization
 │       ├── mockData.ts             # Default mock schemas & fallback datasets
 │       ├── schemaCatalog.ts        # Dynamic schema introspection catalog
-│       └── utils.ts                # Styling utilities & tailwind-merge helper
+│       └── utils.ts                # Styling utilities & BACKEND_URL helper
 ```
-
----
-
-## 🌐 Deployment
-
-### Deploy to Netlify (Recommended)
-
-1. Fork or push this repository to your GitHub account.
-2. Sign in to [Netlify](https://app.netlify.com/) and click **"Add new site" > "Import an existing project"**.
-3. Select your repository: **`SchemaAI`**.
-4. The deployment parameters will automatically be detected from `netlify.toml`:
-   - **Base Directory**: `/` (Root)
-   - **Build Command**: `pnpm build`
-   - **Publish Directory**: `.next`
-   - **Plugin**: `@netlify/plugin-nextjs`
-5. Click **Deploy Site**.
-
-### Deploy to Vercel
-
-```bash
-npm i -g vercel
-vercel
-```
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-
-1. **Fork** the repository.
-2. Create your feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes (`git commit -m "feat: add amazing feature"`).
-4. Push to the branch (`git push origin feature/amazing-feature`).
-5. Open a **Pull Request**.
 
 ---
 
@@ -286,8 +263,6 @@ Contributions, issues, and feature requests are welcome!
 
 This project is open-source and available under the [MIT License](LICENSE).
 
----
-
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/PrateekSingh2">Prateek Singh</a> <a href="https://github.com/shivanshmax-Monster">Shivansh Sahu</a>.</sub>
+  <sub>Built with ❤️ by <a href="https://github.com/PrateekSingh2">Prateek Singh</a> and <a href="https://github.com/shivanshmax-Monster">Shivansh Sahu</a>.</sub>
 </div>

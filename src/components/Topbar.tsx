@@ -22,7 +22,7 @@ import {
   Unplug,
   Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, BACKEND_URL } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { SettingsModal } from "@/components/SettingsModal";
 
@@ -135,7 +135,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       } catch (_) {}
       window.dispatchEvent(new Event("schemaai_db_changed"));
     }
-    fetch("http://127.0.0.1:8000/api/v1/agent/reset-connection", { method: "POST" }).catch(() => {});
+    fetch(`${BACKEND_URL}/api/v1/agent/reset-connection`, { method: "POST" }).catch(() => {});
     if (onDisconnect) {
       onDisconnect();
     }

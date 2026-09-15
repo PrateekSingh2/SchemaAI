@@ -15,6 +15,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "SchemaAI Agent Backend",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "endpoints": [
+            "/api/v1/agent/command",
+            "/api/v1/agent/execute",
+            "/api/v1/agent/reset-connection",
+            "/docs"
+        ]
+    }
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
 class CommandRequest(BaseModel):
     prompt: str
     llmProvider: str
@@ -218,5 +237,7 @@ async def reset_connection():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 

@@ -29,7 +29,7 @@ import {
   Bot,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, BACKEND_URL } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   saveChatSessionToFirestore,
@@ -398,7 +398,7 @@ export default function QueryStudioPage() {
         }
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/v1/agent/command", {
+      const response = await fetch(`${BACKEND_URL}/api/v1/agent/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -587,7 +587,7 @@ export default function QueryStudioPage() {
       });
 
       if (!response.ok) {
-        response = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
+        response = await fetch(`${BACKEND_URL}/api/v1/agent/execute`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -841,7 +841,7 @@ export default function QueryStudioPage() {
             } catch (_) {}
             window.dispatchEvent(new Event("schemaai_db_changed"));
           }
-          fetch("http://127.0.0.1:8000/api/v1/agent/reset-connection", { method: "POST" }).catch(() => {});
+          fetch(`${BACKEND_URL}/api/v1/agent/reset-connection`, { method: "POST" }).catch(() => {});
         }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
