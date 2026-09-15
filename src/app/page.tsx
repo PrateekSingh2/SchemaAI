@@ -455,84 +455,8 @@ export default function QueryStudioPage() {
     let executionColumns: string[] = [];
     let hasSuccessfullyExecuted = false;
 
-    // Auto-execute the synthesized query immediately against the connected database
-    if (responseType === "sql" && generatedSql && !generatedSql.startsWith("--")) {
-      try {
-        let storedCfg: any = {};
-        if (typeof window !== "undefined") {
-          try {
-            storedCfg = JSON.parse(localStorage.getItem("schemaai_db_config") || "{}");
-          } catch (_) {}
-        }
-
-        const payload = {
-          sql: generatedSql,
-          dbType: dbConfig.dbType || storedCfg.dbType || "PostgreSQL",
-          connectionUri: dbConfig.connectionUri || storedCfg.connectionUri || "",
-          connectionMode: (dbConfig as any).connectionMode || storedCfg.connectionMode || "uri",
-          host: (dbConfig as any).host || storedCfg.host,
-          port: (dbConfig as any).port || storedCfg.port,
-          databaseName: dbConfig.databaseName || storedCfg.databaseName,
-          username: (dbConfig as any).username || storedCfg.username,
-          password: (dbConfig as any).password || storedCfg.password,
-          ssl: storedCfg.ssl !== undefined ? storedCfg.ssl : true,
-          supabaseUrl: (dbConfig as any).supabaseUrl || storedCfg.supabaseUrl,
-          supabaseAnonKey: (dbConfig as any).supabaseAnonKey || storedCfg.supabaseAnonKey,
-          supabaseServiceKey: (dbConfig as any).supabaseServiceKey || storedCfg.supabaseServiceKey,
-          mongoAuthSource: (dbConfig as any).mongoAuthSource || storedCfg.mongoAuthSource || "admin",
-        };
-
-        // Attempt Next.js serverless execution first
-        let execRes = await fetch("/api/database/execute", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!execRes.ok) {
-          // Fallback to FastAPI backend
-          execRes = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sql: generatedSql,
-              connectionUri: dbConfig.connectionUri || storedCfg.connectionUri,
-            }),
-          });
-        }
-
-        if (execRes.ok) {
-          const execData = await execRes.json();
-          if (execData.success !== false) {
-            executionRecords = Array.isArray(execData.records) ? execData.records : [];
-            executionColumns = Array.isArray(execData.columns)
-              ? execData.columns
-              : executionRecords.length > 0 && typeof executionRecords[0] === "object"
-              ? Object.keys(executionRecords[0])
-              : [];
-            hasSuccessfullyExecuted = true;
-          } else {
-            executionRecords = [{ error: execData.message || "Database execution error." }];
-            executionColumns = ["error"];
-            hasSuccessfullyExecuted = true;
-          }
-        } else {
-          try {
-            const errJson = await execRes.json();
-            executionRecords = [{ error: errJson.message || "Database query failed." }];
-          } catch (_) {
-            executionRecords = [{ error: `HTTP ${execRes.status} during query execution.` }];
-          }
-          executionColumns = ["error"];
-          hasSuccessfullyExecuted = true;
-        }
-      } catch (execErr: any) {
-        console.warn("Auto-execution encountered an issue:", execErr);
-        executionRecords = [{ error: execErr?.message || "Execution network failure." }];
-        executionColumns = ["error"];
-        hasSuccessfullyExecuted = true;
-      }
-    }
+    // Removed auto-execute per user request. Query will wait for manual execution.
+    hasSuccessfullyExecuted = false;
 
     const completedTurn: ChatMessageTurn = {
       id: turnId,
@@ -1007,7 +931,21 @@ export default function QueryStudioPage() {
                     </div>
 
                     {/* AI Response */}
-                    {turn.type === "text" ? (
+                    {turn.isGenerating ? (
+                      <div className="flex items-start space-x-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 sm:p-4.5 shadow-sm">
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-zinc-200">SchemaAI</span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-normal flex items-center space-x-2">
+                            <span>Thinking...</span>
+                          </p>
+                        </div>
+                      </div>
+                    ) : turn.type === "text" ? (
                       <div className="flex items-start space-x-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 sm:p-4.5 shadow-sm">
                         <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                           <Bot className="w-4 h-4" />

@@ -161,7 +161,7 @@ export const OutputSummaryBox: React.FC<OutputSummaryBoxProps> = ({
               )}
             </button>
 
-            {/* Utility icons (from screenshot) */}
+            {/* Utility icons */}
             <div className="flex items-center space-x-1 text-zinc-500 pl-2 border-l border-[#222226]">
               <button
                 onClick={handleCopySummary}
@@ -169,12 +169,6 @@ export const OutputSummaryBox: React.FC<OutputSummaryBoxProps> = ({
                 title="Copy JSON"
               >
                 {copied ? <Check className="w-4 h-4 text-[#38bdf8]" /> : <Copy className="w-4 h-4" />}
-              </button>
-              <button className="p-1.5 hover:text-zinc-300 transition-colors" title="Good">
-                <ThumbsUp className="w-4 h-4" />
-              </button>
-              <button className="p-1.5 hover:text-zinc-300 transition-colors" title="Bad">
-                <ThumbsDown className="w-4 h-4" />
               </button>
             </div>
           </div>

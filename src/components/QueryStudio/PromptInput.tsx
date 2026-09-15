@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { samplePresets, QueryPreset } from "@/lib/mockData";
+import { cn } from "@/lib/utils";
 
 interface PromptInputProps {
   onGenerateAndRun: (promptText: string) => void;
@@ -43,6 +44,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const basePromptRef = useRef<string>("");
@@ -263,29 +265,53 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               <div className="flex flex-wrap items-center gap-2 select-none">
                 {/* 1. Model Selector Dropdown Pill */}
                 {savedModels.length > 0 ? (
-                  <div className="relative flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.09] hover:border-sky-500/40 text-zinc-200 transition-all shadow-sm cursor-pointer group">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                    <select
-                      value={activeModelId || ""}
-                      onChange={(e) => {
-                        if (e.target.value === "__add_model__") {
-                          onOpenSettings?.("ai");
-                        } else {
-                          onModelChange?.(e.target.value);
-                        }
-                      }}
-                      className="bg-transparent text-zinc-200 text-xs font-medium outline-none border-none cursor-pointer pr-5 appearance-none w-full max-w-[160px] truncate"
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                      className="flex items-center justify-between space-x-2 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.09] hover:border-sky-500/40 text-zinc-200 transition-all shadow-sm cursor-pointer min-w-[120px]"
                     >
-                      {savedModels.map((m) => (
-                        <option key={m.id} value={m.id} className="bg-[#141418] text-zinc-200">
-                          {m.name}
-                        </option>
-                      ))}
-                      <option value="__add_model__" className="bg-[#141418] text-amber-400">
-                        + Add AI Model...
-                      </option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 pointer-events-none absolute right-2.5" />
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <span className="text-xs font-medium truncate max-w-[140px]">
+                          {savedModels.find((m) => m.id === activeModelId)?.name || "Select Model"}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    </button>
+
+                    {isModelDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsModelDropdownOpen(false)} />
+                        <div className="absolute left-0 bottom-full mb-2 w-48 rounded-xl bg-[#141418] border border-white/[0.1] shadow-[0_4px_30px_rgba(0,0,0,0.5)] overflow-hidden z-50 py-1 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                          {savedModels.map((m) => (
+                            <button
+                              key={m.id}
+                              onClick={() => {
+                                onModelChange?.(m.id);
+                                setIsModelDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2 text-xs hover:bg-white/[0.06] transition-colors flex items-center space-x-2",
+                                m.id === activeModelId ? "text-sky-400 font-semibold bg-sky-500/10" : "text-zinc-200"
+                              )}
+                            >
+                              <span className="truncate">{m.name}</span>
+                            </button>
+                          ))}
+                          <div className="h-px bg-white/[0.05] my-1" />
+                          <button
+                            onClick={() => {
+                              setIsModelDropdownOpen(false);
+                              onOpenSettings?.("ai");
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-amber-400 hover:bg-amber-400/10 transition-colors flex items-center space-x-2"
+                          >
+                            <span>+ Add AI Model...</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <button
@@ -442,29 +468,53 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           <div className="flex flex-wrap items-center gap-2 select-none">
             {/* 1. Model Selector Dropdown Pill */}
             {savedModels.length > 0 ? (
-              <div className="relative flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-sky-500/40 text-zinc-200 transition-all shadow-sm cursor-pointer group">
-                <Sparkles className="w-3 h-3 text-sky-400 shrink-0" />
-                <select
-                  value={activeModelId || ""}
-                  onChange={(e) => {
-                    if (e.target.value === "__add_model__") {
-                      onOpenSettings?.("ai");
-                    } else {
-                      onModelChange?.(e.target.value);
-                    }
-                  }}
-                  className="bg-transparent text-zinc-200 text-[11px] font-medium outline-none border-none cursor-pointer pr-4 appearance-none w-full max-w-[130px] truncate"
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  className="flex items-center justify-between space-x-2 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-sky-500/40 text-zinc-200 transition-all shadow-sm cursor-pointer min-w-[110px]"
                 >
-                  {savedModels.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[#141418] text-zinc-200">
-                      {m.name}
-                    </option>
-                  ))}
-                  <option value="__add_model__" className="bg-[#141418] text-amber-400">
-                    + Add Model...
-                  </option>
-                </select>
-                <ChevronDown className="w-3 h-3 text-zinc-400 group-hover:text-zinc-200 pointer-events-none absolute right-2" />
+                  <div className="flex items-center space-x-1.5 min-w-0">
+                    <Sparkles className="w-3 h-3 text-sky-400 shrink-0" />
+                    <span className="text-[11px] font-medium truncate max-w-[100px]">
+                      {savedModels.find((m) => m.id === activeModelId)?.name || "Select Model"}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
+                </button>
+
+                {isModelDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsModelDropdownOpen(false)} />
+                    <div className="absolute left-0 bottom-full mb-2 w-48 rounded-xl bg-[#141418] border border-white/[0.1] shadow-[0_4px_30px_rgba(0,0,0,0.5)] overflow-hidden z-50 py-1 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                      {savedModels.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            onModelChange?.(m.id);
+                            setIsModelDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-[11px] hover:bg-white/[0.06] transition-colors flex items-center space-x-2",
+                            m.id === activeModelId ? "text-sky-400 font-semibold bg-sky-500/10" : "text-zinc-200"
+                          )}
+                        >
+                          <span className="truncate">{m.name}</span>
+                        </button>
+                      ))}
+                      <div className="h-px bg-white/[0.05] my-1" />
+                      <button
+                        onClick={() => {
+                          setIsModelDropdownOpen(false);
+                          onOpenSettings?.("ai");
+                        }}
+                        className="w-full text-left px-3 py-2 text-[11px] font-medium text-amber-400 hover:bg-amber-400/10 transition-colors flex items-center space-x-2"
+                      >
+                        <span>+ Add AI Model...</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <button
