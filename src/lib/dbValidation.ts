@@ -378,13 +378,13 @@ async function introspectSupabase(
 
     cleanUrl = cleanUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
 
-    // Clean and sanitize API key
-    const cleanKey = key.trim().replace(/^['"]|['"]$/g, "");
+    // Clean and sanitize API key (strip quotes, Bearer prefix, and whitespace)
+    let cleanKey = key.trim().replace(/^['"]|['"]$/g, "").replace(/^Bearer\s+/i, "").trim();
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
 
-    const res = await fetch(`${cleanUrl}/rest/v1/`, {
+    let res = await fetch(`${cleanUrl}/rest/v1/`, {
       method: "GET",
       headers: {
         apikey: cleanKey,
@@ -393,24 +393,49 @@ async function introspectSupabase(
       },
       signal: controller.signal,
     });
+
+    // Fallback: If 401/403, retry with just apikey header in case Authorization Bearer was rejected
+    if (!res.ok && (res.status === 401 || res.status === 403)) {
+      try {
+        const retryRes = await fetch(`${cleanUrl}/rest/v1/`, {
+          method: "GET",
+          headers: {
+            apikey: cleanKey,
+            Accept: "application/openapi+json, application/json, */*",
+          },
+          signal: controller.signal,
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+        }
+      } catch (_) {}
+    }
+
     clearTimeout(timeout);
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
+      let specificDetail = "";
+      try {
+        const parsedErr = JSON.parse(errBody);
+        if (parsedErr.message) specificDetail = parsedErr.message;
+        else if (parsedErr.error) specificDetail = parsedErr.error;
+        if (parsedErr.hint) specificDetail += ` (${parsedErr.hint})`;
+      } catch (_) {
+        if (errBody && errBody.length < 200) specificDetail = errBody;
+      }
+
       let errMsg = `Supabase PostgREST API returned HTTP ${res.status}`;
       if (res.status === 401 || res.status === 403) {
-        errMsg = "Unauthorized: Invalid Supabase API Key. Please verify your anon key or service_role key in Project Settings > API.";
+        errMsg = specificDetail
+          ? `Unauthorized (${specificDetail}). Please check your API key from Supabase Dashboard > Project Settings > API.`
+          : "Unauthorized: Invalid Supabase API Key. Please verify your anon key (public) or service_role (secret) key from Supabase Dashboard > Project Settings > API.";
       } else if (res.status === 404) {
         errMsg = `Project not found at ${cleanUrl}. Verify your Supabase Project URL (e.g. https://<project-ref>.supabase.co).`;
       } else if (res.status === 503 || res.status === 504) {
         errMsg = `Supabase project may be paused or waking up. Please verify the project is active in Supabase Dashboard.`;
-      } else {
-        try {
-          const parsedErr = JSON.parse(errBody);
-          if (parsedErr.message) errMsg = parsedErr.message;
-          else if (parsedErr.error) errMsg = parsedErr.error;
-          else if (parsedErr.hint) errMsg = `${parsedErr.message || "Error"} (${parsedErr.hint})`;
-        } catch (_) {}
+      } else if (specificDetail) {
+        errMsg = specificDetail;
       }
       return { error: errMsg };
     }
@@ -583,7 +608,18 @@ async function introspectSupabase(
 
     return { tables, fks, databaseName: projectRef };
   } catch (e: any) {
-    return { error: e?.message || "Failed to reach Supabase PostgREST endpoint." };
+    const msg = e?.message || "";
+    if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
+      return {
+        error: `Could not resolve Supabase host: ${url}. Verify your Supabase Project URL syntax (e.g. https://<project-ref>.supabase.co) and make sure the project is active in your Supabase Dashboard.`,
+      };
+    }
+    if (msg.includes("timeout") || msg.includes("abort")) {
+      return {
+        error: `Connection to Supabase timed out. Your project may be paused in the Supabase Dashboard.`,
+      };
+    }
+    return { error: msg || "Failed to reach Supabase PostgREST endpoint." };
   }
 }
 

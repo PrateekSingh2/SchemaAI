@@ -10,12 +10,13 @@ import {
   Folder,
   Settings,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 
 export interface ChatMessageTurn {
   id: string;
   userPrompt: string;
   timestamp: string;
+  createdAt?: number;
   sql: string;
   graphql?: string;
   queryFormat: "sql" | "graphql";
@@ -37,6 +38,8 @@ export interface ChatOperation {
   sql: string;
   graphql?: string;
   timestamp: string;
+  createdAt?: number;
+  updatedAtMillis?: number;
   format: "sql" | "graphql";
   type?: "sql" | "text";
   textContent?: string;
@@ -207,7 +210,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
                         <span className="w-2 h-2 rounded-full bg-[#38bdf8] shadow-[0_0_6px_#38bdf8]" />
                       ) : (
                         <span className="text-xs text-zinc-500 font-mono">
-                          {op.timestamp}
+                          {formatRelativeTime(op.createdAt || op.updatedAtMillis || op.timestamp)}
                         </span>
                       )}
 

@@ -29,13 +29,14 @@ import {
   Bot,
   Loader2,
 } from "lucide-react";
-import { cn, BACKEND_URL } from "@/lib/utils";
+import { cn, BACKEND_URL, formatRelativeTime } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   saveChatSessionToFirestore,
   getUserChatSessionsFromFirestore,
   deleteUserChatSessionFromFirestore,
   clearAllUserChatSessionsFromFirestore,
+  saveAuditLogToFirestore,
 } from "@/lib/chatService";
 
 export default function QueryStudioPage() {
@@ -220,26 +221,62 @@ export default function QueryStudioPage() {
     }
   }, [activeTurns.length, isGenerating]);
 
-  // If user is not authenticated or auth state is loading, show loading screen
-  if (loading || !user) {
-    return (
-      <div className="h-screen w-screen bg-[#0e0e11] flex items-center justify-center select-none">
-        <div className="flex flex-col items-center space-y-3 animate-in fade-in duration-300">
-          <div className="w-11 h-11 rounded-2xl bg-[#141418] border border-white/[0.1] flex items-center justify-center shadow-2xl">
-            <Database className="w-5 h-5 text-[#38bdf8] animate-pulse" />
-          </div>
-          <div className="flex items-center space-x-2 text-xs text-zinc-400">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
-            <span>Loading SchemaAI session...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Real Client IP Detection
+  const [clientIp, setClientIp] = useState<string>("127.0.0.1");
 
-  // 1. Submit a prompt:
-  // Checks for active database connection first!
-  // If not connected, keeps prompt safe in cache and shows Database Required Modal!
+  useEffect(() => {
+    async function fetchClientIp() {
+      try {
+        const res = await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(3500) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ip) {
+            setClientIp(data.ip);
+            return;
+          }
+        }
+      } catch (_) {}
+
+      try {
+        const localRes = await fetch("/api/client-info", { signal: AbortSignal.timeout(3000) });
+        if (localRes.ok) {
+          const data = await localRes.json();
+          if (data.ip) {
+            setClientIp(data.ip);
+          }
+        }
+      } catch (_) {}
+    }
+    fetchClientIp();
+  }, []);
+
+  const getClientDeviceString = () => {
+    if (typeof navigator === "undefined") return "Browser Client";
+    const ua = navigator.userAgent;
+    let os = "Windows 11";
+    if (ua.includes("Win")) os = "Windows Client";
+    else if (ua.includes("Mac")) os = "macOS";
+    else if (ua.includes("Linux")) os = "Linux";
+    else if (ua.includes("Android")) os = "Android";
+    else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+
+    let browser = "Chrome";
+    if (ua.includes("Edg")) browser = "Edge";
+    else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+    else if (ua.includes("Firefox")) browser = "Firefox";
+
+    return `${browser} / ${os}`;
+  };
+
+  const getActiveModelName = () => {
+    if (dbConfig.savedModels && dbConfig.savedModels.length > 0) {
+      const found = dbConfig.savedModels.find((m) => m.id === dbConfig.activeModelId);
+      if (found) return found.name;
+      return dbConfig.savedModels[0].name;
+    }
+    return dbConfig.llmProvider ? `${dbConfig.llmProvider} (tuned)` : "Gemini 1.5 Flash";
+  };
+
   const recordAuditLog = (userPrompt: string, sql: string, durationMs: number, rowCount: number) => {
     try {
       if (typeof window !== "undefined") {
@@ -247,18 +284,27 @@ export default function QueryStudioPage() {
         const logEntry: AuditLogEntry = {
           id: `LOG-${Date.now().toString().slice(-6)}`,
           timestamp: new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC",
-          ipAddress: "127.0.0.1",
+          ipAddress: clientIp || "127.0.0.1",
           userPrompt,
           generatedSql: sql,
           status: mutationCheck.isMutation ? "MUTATION_APPROVED" : "SUCCESS",
           durationMs: durationMs || 28,
           rowsAffected: rowCount,
-          model: "GPT-4o (schema-tuned)",
-          clientDevice: typeof navigator !== "undefined" && navigator.userAgent.includes("Mac") ? "Chrome / macOS" : "Browser Client",
+          model: getActiveModelName(),
+          clientDevice: getClientDeviceString(),
         };
+
         const prevLogs = JSON.parse(localStorage.getItem("schemaai_audit_logs") || "[]");
-        localStorage.setItem("schemaai_audit_logs", JSON.stringify([logEntry, ...(Array.isArray(prevLogs) ? prevLogs : [])].slice(0, 100)));
+        localStorage.setItem(
+          "schemaai_audit_logs",
+          JSON.stringify([logEntry, ...(Array.isArray(prevLogs) ? prevLogs : [])].slice(0, 100))
+        );
         window.dispatchEvent(new Event("schemaai_audit_logs_changed"));
+
+        // Persist to Firebase Firestore if logged in
+        if (user?.uid) {
+          saveAuditLogToFirestore(user.uid, logEntry).catch(() => {});
+        }
       }
     } catch (_) {}
   };
@@ -284,11 +330,13 @@ export default function QueryStudioPage() {
     }
     setIsGenerating(true);
 
-    const turnId = `turn-${Date.now()}`;
+    const nowMillis = Date.now();
+    const turnId = `turn-${nowMillis}`;
     const newTurnPlaceholder: ChatMessageTurn = {
       id: turnId,
       userPrompt: promptText,
-      timestamp: "Just now",
+      timestamp: "just now",
+      createdAt: nowMillis,
       sql: "-- Synthesizing relational AST...",
       queryFormat: "sql",
       hasRun: false,
@@ -318,36 +366,27 @@ export default function QueryStudioPage() {
       let apiKey = activeModel ? activeModel.apiKey : "";
       let modelId = activeModel ? (activeModel.modelId || activeModel.name) : "";
 
-      // Fallback: check localStorage directly if state hasn't updated yet
+      // Fallback: If no provider key is saved in dbConfig.savedModels, check localStorage directly
       if (!apiKey && typeof window !== "undefined") {
         try {
-          const storedCfg = localStorage.getItem("schemaai_db_config");
-          if (storedCfg) {
-            const parsed = JSON.parse(storedCfg);
-            if (parsed.llmApiKey) {
-              apiKey = parsed.llmApiKey;
-              provider = parsed.llmProvider || provider;
-            } else if (Array.isArray(parsed.savedModels) && parsed.savedModels.length > 0) {
-              const m = parsed.savedModels.find((x: any) => x.id === parsed.activeModelId) || parsed.savedModels[0];
-              if (m && m.apiKey) {
-                apiKey = m.apiKey;
-                provider = m.provider || provider;
-                modelId = m.modelId || m.name || modelId;
+          const stored = localStorage.getItem("schemaai_db_config");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed.savedModels) && parsed.savedModels.length > 0) {
+              const active = parsed.savedModels.find((m: any) => m.id === parsed.activeModelId) || parsed.savedModels[0];
+              if (active) {
+                provider = active.provider || provider;
+                apiKey = active.apiKey || apiKey;
+                modelId = active.modelId || active.name || modelId;
               }
             }
           }
         } catch (_) {}
       }
 
-      if (!apiKey) {
-        setIsSettingsModalOpen(true);
-        throw new Error("No AI API Key selected. Please configure your OpenAI, Anthropic, or NVIDIA API Key in Settings to generate queries.");
-      }
-
-      // Extract introspected schema context to feed to LLM
+      // 2. Build live Schema Context from active database tables
       let schemaContext = "";
       let activeDatabaseName = dbConfig.databaseName;
-      
       if (typeof window !== "undefined") {
         try {
           const rawSchema = localStorage.getItem("schemaai_introspected_schema");
@@ -361,22 +400,10 @@ export default function QueryStudioPage() {
             const parsedSchema = JSON.parse(rawSchema);
             if (Array.isArray(parsedSchema.tables) && parsedSchema.tables.length > 0) {
               const tableSummaries = parsedSchema.tables.map((t: any) => {
-                const name = t.tableName || t.name || t.id || "unknown_table";
                 const cols = Array.isArray(t.columns)
-                  ? t.columns
-                      .map((c: any) => {
-                        let colStr = `${c.name} (${c.type || "varchar"})`;
-                        if (c.isPrimaryKey) colStr += " [PRIMARY KEY]";
-                        if (c.isForeignKey && c.foreignKeyRef) colStr += ` [FK -> ${c.foreignKeyRef}]`;
-                        return colStr;
-                      })
-                      .join(", ")
-                  : "no columns listed";
-
-                let summary = `• Table/Collection: ${name}\n  Attributes/Columns: [${cols}]`;
-                if (t.rowCount !== undefined && t.rowCount > 0) {
-                  summary += `\n  Total Records: ${t.rowCount}`;
-                }
+                  ? t.columns.map((c: any) => `${c.name} (${c.type}${c.isPrimaryKey ? ", PK" : ""}${c.isForeignKey ? `, FK -> ${c.foreignKeyRef || ""}` : ""})`).join(", ")
+                  : "id (uuid, PK)";
+                let summary = `• Table: ${t.tableName} [Row count: ${t.rowCount || 0}]\n  Columns: ${cols}`;
                 if (t.sampleDocument) {
                   summary += `\n  Sample Document/Structure: ${JSON.stringify(t.sampleDocument).slice(0, 300)}`;
                 }
@@ -390,7 +417,7 @@ export default function QueryStudioPage() {
                   .join("\n");
               }
 
-              schemaContext = `Database Name: ${activeDatabaseName || dbConfig.dbType}\nDatabase Engine: ${dbConfig.dbType}\n\nSchema Tables & Attributes:\n${tableSummaries.join("\n\n")}${fksSummary}`;
+              schemaContext = `Database Name: ${activeDatabaseName || dbConfig.databaseName || dbConfig.dbType}\nDatabase Engine: ${dbConfig.dbType}\n\nSchema Tables & Attributes:\n${tableSummaries.join("\n\n")}${fksSummary}`;
             }
           }
         } catch (e) {
@@ -451,7 +478,7 @@ export default function QueryStudioPage() {
     }
 
     const executionTimeMs = Math.round(performance.now() - startTime);
-    let executionRecords: any[] = [];
+    let executionRecords: Array<Record<string, unknown>> = [];
     let executionColumns: string[] = [];
     let hasSuccessfullyExecuted = false;
 
@@ -461,7 +488,8 @@ export default function QueryStudioPage() {
     const completedTurn: ChatMessageTurn = {
       id: turnId,
       userPrompt: promptText,
-      timestamp: "Just now",
+      timestamp: "just now",
+      createdAt: nowMillis,
       sql: generatedSql, 
       graphql: "",
       queryFormat: "sql",
@@ -483,13 +511,15 @@ export default function QueryStudioPage() {
 
     // Update or create chat operation in left panel & Firestore
     if (!activeOperationId) {
-      const newOpId = `op-${Date.now()}`;
+      const newOpId = `op-${nowMillis}`;
       const newOp: ChatOperation = {
         id: newOpId,
         prompt: promptText,
         sql: generatedSql,
         graphql: "",
-        timestamp: "Just now",
+        timestamp: "just now",
+        createdAt: nowMillis,
+        updatedAtMillis: nowMillis,
         format: "sql",
         type: responseType === "sql" ? "sql" : "text",
         textContent: generatedText,
@@ -500,25 +530,32 @@ export default function QueryStudioPage() {
         executionTime: executionTimeMs,
         turns: [completedTurn],
       };
-      if (responseType === "sql") {
-        setOperations((prev) => [newOp, ...prev]);
-        setActiveOperationId(newOpId);
+      setOperations((prev) => [newOp, ...prev]);
+      setActiveOperationId(newOpId);
+      if (user?.uid) {
+        saveChatSessionToFirestore(user.uid, newOp);
       }
     } else {
       setOperations((prev) =>
-        prev.map((op) =>
-          op.id === activeOperationId
-            ? {
-                ...op,
-                sql: responseType === "sql" ? generatedSql : op.sql,
-                status: hasSuccessfullyExecuted ? "executed" : op.status,
-                rowCount: hasSuccessfullyExecuted ? executionRecords.length : op.rowCount,
-                records: hasSuccessfullyExecuted ? executionRecords : op.records,
-                columns: hasSuccessfullyExecuted ? executionColumns : op.columns,
-                turns: [...(op.turns || []), completedTurn],
-              }
-            : op
-        )
+        prev.map((op) => {
+          if (op.id === activeOperationId) {
+            const updatedOp = {
+              ...op,
+              sql: responseType === "sql" ? generatedSql : op.sql,
+              status: hasSuccessfullyExecuted ? "executed" : op.status,
+              rowCount: hasSuccessfullyExecuted ? executionRecords.length : op.rowCount,
+              records: hasSuccessfullyExecuted ? executionRecords : op.records,
+              columns: hasSuccessfullyExecuted ? executionColumns : op.columns,
+              turns: [...(op.turns || []), completedTurn],
+              updatedAtMillis: Date.now(),
+            };
+            if (user?.uid) {
+              saveChatSessionToFirestore(user.uid, updatedOp);
+            }
+            return updatedOp;
+          }
+          return op;
+        })
       );
     }
 
@@ -653,20 +690,36 @@ export default function QueryStudioPage() {
       tableName: dbConfig.databaseName,
     });
 
-    // Update history session in left panel
+    // Update history session in left panel & Firestore
     if (activeOperationId) {
       setOperations((prev) =>
-        prev.map((op) =>
-          op.id === activeOperationId
-            ? {
-                ...op,
-                status: "executed",
-                rowCount: records.length,
-                records: records,
-                columns: columns,
-              }
-            : op
-        )
+        prev.map((op) => {
+          if (op.id === activeOperationId) {
+            const updatedOp: ChatOperation = {
+              ...op,
+              status: "executed",
+              rowCount: records.length,
+              records: records,
+              columns: columns,
+              turns: (op.turns || []).map((t) =>
+                t.id === turnId
+                  ? {
+                      ...t,
+                      hasRun: true,
+                      records: records,
+                      columns: columns,
+                      executionTime: executionTimeMs,
+                    }
+                  : t
+              ),
+            };
+            if (user?.uid) {
+              saveChatSessionToFirestore(user.uid, updatedOp);
+            }
+            return updatedOp;
+          }
+          return op;
+        })
       );
     }
 
@@ -793,6 +846,23 @@ export default function QueryStudioPage() {
     setIsMutationModalOpen(false);
     setPendingMutation(null);
   };
+
+  // If user is not authenticated or auth state is loading, show loading screen
+  if (loading || !user) {
+    return (
+      <div className="h-screen w-screen bg-[#0e0e11] flex items-center justify-center select-none">
+        <div className="flex flex-col items-center space-y-3 animate-in fade-in duration-300">
+          <div className="w-11 h-11 rounded-2xl bg-[#141418] border border-white/[0.1] flex items-center justify-center shadow-2xl">
+            <Database className="w-5 h-5 text-[#38bdf8] animate-pulse" />
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-zinc-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+            <span>Loading SchemaAI session...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const hasTurns = activeTurns.length > 0;
 
@@ -921,7 +991,7 @@ export default function QueryStudioPage() {
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-semibold text-zinc-200">You</span>
                           <span className="text-[10px] text-zinc-500 font-mono">
-                            Turn #{turnIdx + 1} • {turn.timestamp}
+                            Turn #{turnIdx + 1} • {formatRelativeTime(turn.createdAt || turn.timestamp)}
                           </span>
                         </div>
                         <p className="text-xs sm:text-sm text-zinc-100 leading-relaxed font-normal select-text">

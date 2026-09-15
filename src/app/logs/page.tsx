@@ -8,13 +8,27 @@ import { AuditLogEntry } from "@/lib/mockData";
 import { useAuth } from "@/context/AuthContext";
 import { Database, Loader2 } from "lucide-react";
 
+import { getUserAuditLogsFromFirestore } from "@/lib/chatService";
+
 export default function LogsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
 
   useEffect(() => {
-    const loadLogs = () => {
+    const loadLogs = async () => {
+      // 1. Try fetching from Firestore first if user is logged in
+      if (user?.uid) {
+        try {
+          const firestoreLogs = await getUserAuditLogsFromFirestore(user.uid);
+          if (firestoreLogs && firestoreLogs.length > 0) {
+            setLogs(firestoreLogs);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // 2. Fallback to localStorage
       if (typeof window !== "undefined") {
         try {
           const stored = localStorage.getItem("schemaai_audit_logs");
@@ -33,7 +47,7 @@ export default function LogsPage() {
     loadLogs();
     window.addEventListener("schemaai_audit_logs_changed", loadLogs);
     return () => window.removeEventListener("schemaai_audit_logs_changed", loadLogs);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -61,7 +75,17 @@ export default function LogsPage() {
     );
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    if (user?.uid) {
+      try {
+        const firestoreLogs = await getUserAuditLogsFromFirestore(user.uid);
+        if (firestoreLogs && firestoreLogs.length > 0) {
+          setLogs(firestoreLogs);
+          return;
+        }
+      } catch (_) {}
+    }
+
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("schemaai_audit_logs");
