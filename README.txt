@@ -1,9 +1,9 @@
-<div align="center">
+﻿<div align="center">
 
-# ⚡ SchemaAI
+# âš¡ SchemaAI
 
 ### Intelligent Natural Language to SQL & GraphQL Query Platform
-A modern developer workbench featuring AI-assisted query generation, interactive relational schema exploration with React Flow, and strict security mutation guardrails — designed with a sleek Supabase-inspired warm-dark aesthetic.
+A modern developer workbench featuring AI-assisted query generation, interactive relational schema exploration with React Flow, and strict security mutation guardrails â€” designed with a sleek Supabase-inspired warm-dark aesthetic.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178c6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
@@ -12,49 +12,49 @@ A modern developer workbench featuring AI-assisted query generation, interactive
 [![pnpm](https://img.shields.io/badge/pnpm-11.0+-f69220?style=for-the-badge&logo=pnpm)](https://pnpm.io/)
 [![Netlify](https://img.shields.io/badge/Netlify-Ready-00c7b7?style=for-the-badge&logo=netlify)](https://www.netlify.com/)
 
-[**Explore Live Demo**](#-getting-started) • [**Features**](#-features) • [**Installation Guide**](#-step-by-step-setup-guide) • [**Deploy to Netlify**](#-deployment)
+[**Explore Live Demo**](#-getting-started) â€¢ [**Features**](#-features) â€¢ [**Installation Guide**](#-step-by-step-setup-guide) â€¢ [**Deploy to Netlify**](#-deployment)
 
 </div>
 
 ---
 
-## 🌟 Overview
+## ðŸŒŸ Overview
 
 **SchemaAI** bridges the gap between natural language prompts and high-performance database queries. Built on Next.js 14+ App Router, it provides a unified developer cockpit to inspect database entity-relationship graphs, convert plain English into optimized SQL or GraphQL queries, inspect execution telemetry, and safeguard production databases with cryptographic mutation interception.
 
 ---
 
-## 🚀 Features
+## ðŸš€ Features
 
-### 1. ⚡ Query Studio (`/`)
+### 1. âš¡ Query Studio (`/`)
 - **Zero-Page-Scroll Viewport**: Strictly fitted to `100vh` without full-page scrollbars.
 - **Split Code & Data Panes**:
   - **SQL / GraphQL Editor**: Syntax-highlighted code editor with line numbering, copy button, dialect toggles, and live telemetry micro-badges (Latency, Tokens, Cost, AST Safety).
   - **Spreadsheet Data Grid**: In-table quick search, sticky blurred headers, column sort indicators, and one-click export to **CSV** and **JSON**.
-- **Docked Natural Language Command Bar**: Preset suggestion pills for Analytics, Performance queries, GraphQL schemas, and destructive Mutation testing with `⌘/Ctrl + Enter` execution shortcut.
+- **Docked Natural Language Command Bar**: Preset suggestion pills for Analytics, Performance queries, GraphQL schemas, and destructive Mutation testing with `âŒ˜/Ctrl + Enter` execution shortcut.
 
-### 2. 🕸️ Interactive Schema Explorer (`/schema`)
+### 2. ðŸ•¸ï¸ Interactive Schema Explorer (`/schema`)
 - **Graph Visualizer**: Built with `@xyflow/react` over a warm dot-grid canvas.
 - **Table Node Cards**: Detailed cards showing schema namespaces, row counts, data types (`uuid`, `int4`, `timestamptz`, etc.), Primary Key (`PK`), and Foreign Key (`FK`) link indicators.
 - **Bezier Relationship Edges**: Animated relationship lines connecting foreign key dependencies across tables.
 - **Controls & Inspector**: Zoom, pan, search filter, layout reset, minimap, and selected node details panel.
 
-### 3. 🛡️ Strict Mutation Guard Interception
+### 3. ðŸ›¡ï¸ Strict Mutation Guard Interception
 - **Dangerous Operation Interceptor**: Automatically blocks unprivileged `DELETE`, `DROP`, `UPDATE`, and `ALTER` statements before database execution.
 - **Security Escalation Modal**: Displays origin Client IP, User Device, Target Table, and SQL diff with dual **Deny (Block & Log)** or **Grant Privilege & Execute** actions.
 
-### 4. 📜 Audit & Telemetry Logs (`/logs`)
+### 4. ðŸ“œ Audit & Telemetry Logs (`/logs`)
 - **Immutable Audit Trail**: Cryptographically logs every prompt, executed SQL, execution status (`SUCCESS`, `BLOCKED`, `MUTATION_APPROVED`), latency, and client metadata.
 - **KPI Metrics Dashboard**: Overview cards tracking total query executions, blocked write attempts, and approved escalations.
 - **Search & Filter**: Segmented status filters and click-to-inspect audit modal.
 
-### 5. ⚙️ Configuration & Connection Portal (`/settings`)
+### 5. âš™ï¸ Configuration & Connection Portal (`/settings`)
 - Dedicated portal with tabbed configuration for **Database Connection** (PostgreSQL, Supabase, MySQL, Neon, CockroachDB, SQLite), **AI Model Engine** (OpenAI GPT-4o, Claude 3.5 Sonnet), **Mutation Guard Rails**, and **PgBouncer Connection Pooling**.
 - Integrated **Test Connection Handshake** with roundtrip latency telemetry.
 
 ---
 
-## 🛠️ Tech Stack
+## ðŸ› ï¸ Tech Stack
 
 - **Framework**: [Next.js 16+ (App Router)](https://nextjs.org/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
@@ -66,7 +66,7 @@ A modern developer workbench featuring AI-assisted query generation, interactive
 
 ---
 
-## 📦 Step-by-Step Setup Guide
+## ðŸ“¦ Step-by-Step Setup Guide
 
 Follow these instructions to clone, install, and run **SchemaAI** on your local machine.
 
@@ -148,13 +148,13 @@ You can run both the frontend and backend concurrently or in separate terminals:
 
 #### Option A: Running in Two Terminals (Recommended for Development)
 
-1. **Terminal 1 — Next.js Frontend** (Port `3000`):
+1. **Terminal 1 â€” Next.js Frontend** (Port `3000`):
    ```bash
    pnpm dev
    ```
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-2. **Terminal 2 — FastAPI Python Backend** (Port `8000`):
+2. **Terminal 2 â€” FastAPI Python Backend** (Port `8000`):
    ```bash
    pnpm backend
    # Or directly with Python:
@@ -187,67 +187,67 @@ pnpm start
 
 ---
 
-## 🧭 Project File Structure
+## ðŸ§­ Project File Structure
 
 ```text
 SchemaAI/
-├── backend/                        # Python FastAPI AI Agent Backend
-│   ├── agent.py                    # LangGraph / LangChain NL-to-SQL synthesizer
-│   ├── main.py                     # FastAPI REST server & CORS setup
-│   └── requirements.txt            # Python dependencies
-├── netlify/
-│   └── functions/
-│       └── test-database-connection.ts # Edge serverless database test handler
-├── netlify.toml                    # Netlify build & serverless configuration
-├── package.json                    # Frontend scripts & dependencies
-├── pnpm-lock.yaml                  # pnpm dependency lockfile
-├── tsconfig.json                   # TypeScript configuration
-├── WORKFLOW.txt                    # System architecture & workflow documentation
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   └── database/
-│   │   │       ├── connect/route.ts # Direct database handshake API
-│   │   │       └── execute/route.ts # Query execution & mutation guard API
-│   │   ├── login/page.tsx          # Firebase authentication portal
-│   │   ├── logs/page.tsx           # Audit logs & telemetry view
-│   │   ├── schema/page.tsx         # Interactive React Flow schema explorer
-│   │   ├── settings/page.tsx       # Database & AI model configuration page
-│   │   ├── layout.tsx              # Root application layout
-│   │   ├── page.tsx                # Query Studio (Single-page natural language SQL cockpit)
-│   │   └── globals.css             # Tailwind CSS v4 & theme variables
-│   ├── components/
-│   │   ├── AuditLogs/
-│   │   │   └── LogsView.tsx        # Searchable audit & telemetry logs
-│   │   ├── QueryStudio/
-│   │   │   ├── ChatHistoryPanel.tsx # Conversation history & session switcher
-│   │   │   ├── DatabaseRequiredModal.tsx # Connection onboarding warning modal
-│   │   │   ├── OutputResultsModal.tsx # Fullscreen tabular dataset modal
-│   │   │   ├── OutputSummaryBox.tsx   # Inline query summary & result count
-│   │   │   ├── PromptInput.tsx        # Natural language prompt command bar
-│   │   │   ├── RecordsTable.tsx       # Virtualized tabular data grid with CSV/JSON export
-│   │   │   └── SqlOutput.tsx          # Syntax-highlighted SQL/GraphQL code pane
-│   │   ├── SchemaExplorer/
-│   │   │   ├── DocumentNode.tsx    # MongoDB document schema card
-│   │   │   ├── SchemaCanvas.tsx    # React Flow canvas with pan/zoom controls
-│   │   │   └── TableNode.tsx       # Relational table card with PK/FK indicators
-│   │   ├── MutationWarningModal.tsx # Zero-trust mutation guard security modal
-│   │   ├── SettingsModal.tsx       # Quick settings drawer modal
-│   │   └── Topbar.tsx              # Header navigation bar
-│   ├── context/
-│   │   └── AuthContext.tsx         # Firebase auth & session provider
-│   └── lib/
-│       ├── chatService.ts          # AI query generator & fallback handler
-│       ├── dbValidation.ts         # Multi-database driver connection validator
-│       ├── firebase.ts             # Firebase client initialization
-│       ├── mockData.ts             # Default mock schemas & fallback datasets
-│       ├── schemaCatalog.ts        # Dynamic schema introspection catalog
-│       └── utils.ts                # Styling utilities & tailwind-merge helper
+â”œâ”€â”€ backend/                        # Python FastAPI AI Agent Backend
+â”‚   â”œâ”€â”€ agent.py                    # LangGraph / LangChain NL-to-SQL synthesizer
+â”‚   â”œâ”€â”€ main.py                     # FastAPI REST server & CORS setup
+â”‚   â””â”€â”€ requirements.txt            # Python dependencies
+â”œâ”€â”€ netlify/
+â”‚   â””â”€â”€ functions/
+â”‚       â””â”€â”€ test-database-connection.ts # Edge serverless database test handler
+â”œâ”€â”€ netlify.toml                    # Netlify build & serverless configuration
+â”œâ”€â”€ package.json                    # Frontend scripts & dependencies
+â”œâ”€â”€ pnpm-lock.yaml                  # pnpm dependency lockfile
+â”œâ”€â”€ tsconfig.json                   # TypeScript configuration
+â”œâ”€â”€ WORKFLOW.txt                    # System architecture & workflow documentation
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ app/
+â”‚   â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â”‚   â””â”€â”€ database/
+â”‚   â”‚   â”‚       â”œâ”€â”€ connect/route.ts # Direct database handshake API
+â”‚   â”‚   â”‚       â””â”€â”€ execute/route.ts # Query execution & mutation guard API
+â”‚   â”‚   â”œâ”€â”€ login/page.tsx          # Firebase authentication portal
+â”‚   â”‚   â”œâ”€â”€ logs/page.tsx           # Audit logs & telemetry view
+â”‚   â”‚   â”œâ”€â”€ schema/page.tsx         # Interactive React Flow schema explorer
+â”‚   â”‚   â”œâ”€â”€ settings/page.tsx       # Database & AI model configuration page
+â”‚   â”‚   â”œâ”€â”€ layout.tsx              # Root application layout
+â”‚   â”‚   â”œâ”€â”€ page.tsx                # Query Studio (Single-page natural language SQL cockpit)
+â”‚   â”‚   â””â”€â”€ globals.css             # Tailwind CSS v4 & theme variables
+â”‚   â”œâ”€â”€ components/
+â”‚   â”‚   â”œâ”€â”€ AuditLogs/
+â”‚   â”‚   â”‚   â””â”€â”€ LogsView.tsx        # Searchable audit & telemetry logs
+â”‚   â”‚   â”œâ”€â”€ QueryStudio/
+â”‚   â”‚   â”‚   â”œâ”€â”€ ChatHistoryPanel.tsx # Conversation history & session switcher
+â”‚   â”‚   â”‚   â”œâ”€â”€ DatabaseRequiredModal.tsx # Connection onboarding warning modal
+â”‚   â”‚   â”‚   â”œâ”€â”€ OutputResultsModal.tsx # Fullscreen tabular dataset modal
+â”‚   â”‚   â”‚   â”œâ”€â”€ OutputSummaryBox.tsx   # Inline query summary & result count
+â”‚   â”‚   â”‚   â”œâ”€â”€ PromptInput.tsx        # Natural language prompt command bar
+â”‚   â”‚   â”‚   â”œâ”€â”€ RecordsTable.tsx       # Virtualized tabular data grid with CSV/JSON export
+â”‚   â”‚   â”‚   â””â”€â”€ SqlOutput.tsx          # Syntax-highlighted SQL/GraphQL code pane
+â”‚   â”‚   â”œâ”€â”€ SchemaExplorer/
+â”‚   â”‚   â”‚   â”œâ”€â”€ DocumentNode.tsx    # MongoDB document schema card
+â”‚   â”‚   â”‚   â”œâ”€â”€ SchemaCanvas.tsx    # React Flow canvas with pan/zoom controls
+â”‚   â”‚   â”‚   â””â”€â”€ TableNode.tsx       # Relational table card with PK/FK indicators
+â”‚   â”‚   â”œâ”€â”€ MutationWarningModal.tsx # Zero-trust mutation guard security modal
+â”‚   â”‚   â”œâ”€â”€ SettingsModal.tsx       # Quick settings drawer modal
+â”‚   â”‚   â””â”€â”€ Topbar.tsx              # Header navigation bar
+â”‚   â”œâ”€â”€ context/
+â”‚   â”‚   â””â”€â”€ AuthContext.tsx         # Firebase auth & session provider
+â”‚   â””â”€â”€ lib/
+â”‚       â”œâ”€â”€ chatService.ts          # AI query generator & fallback handler
+â”‚       â”œâ”€â”€ dbValidation.ts         # Multi-database driver connection validator
+â”‚       â”œâ”€â”€ firebase.ts             # Firebase client initialization
+â”‚       â”œâ”€â”€ mockData.ts             # Default mock schemas & fallback datasets
+â”‚       â”œâ”€â”€ schemaCatalog.ts        # Dynamic schema introspection catalog
+â”‚       â””â”€â”€ utils.ts                # Styling utilities & tailwind-merge helper
 ```
 
 ---
 
-## 🌐 Deployment
+## ðŸŒ Deployment
 
 ### Deploy to Netlify (Recommended)
 
@@ -270,7 +270,7 @@ vercel
 
 ---
 
-## 🤝 Contributing
+## ðŸ¤ Contributing
 
 Contributions, issues, and feature requests are welcome!
 
@@ -282,12 +282,12 @@ Contributions, issues, and feature requests are welcome!
 
 ---
 
-## 📄 License
+## ðŸ“„ License
 
 This project is open-source and available under the [MIT License](LICENSE).
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/PrateekSingh2">Prateek Singh</a> <a href="https://github.com/shivanshmax-Monster">Shivansh Sahu</a>.</sub>
+  <sub>Built with â¤ï¸ by <a href="https://github.com/PrateekSingh2">Prateek Singh</a> <a href="https://github.com/shivanshmax-Monster">Shivansh Sahu</a>.</sub>
 </div>

@@ -111,11 +111,31 @@ export const Topbar: React.FC<TopbarProps> = ({
   const handleDisconnect = (e: React.MouseEvent) => {
     e.stopPropagation();
     setInternalConnected(false);
+    setInternalDbType("");
+    setInternalDbName("");
     if (typeof window !== "undefined") {
       localStorage.setItem("schemaai_db_connected", "false");
       localStorage.removeItem("schemaai_introspected_schema");
+      try {
+        const cfg = localStorage.getItem("schemaai_db_config");
+        if (cfg) {
+          const parsed = JSON.parse(cfg);
+          const cleaned = {
+            savedModels: parsed.savedModels || [],
+            activeModelId: parsed.activeModelId || "",
+            llmProvider: parsed.llmProvider || "openai",
+            llmApiKey: parsed.llmApiKey || "",
+            enableQueryGuard: parsed.enableQueryGuard !== undefined ? parsed.enableQueryGuard : true,
+            dbType: "",
+            connectionUri: "",
+            databaseName: "",
+          };
+          localStorage.setItem("schemaai_db_config", JSON.stringify(cleaned));
+        }
+      } catch (_) {}
       window.dispatchEvent(new Event("schemaai_db_changed"));
     }
+    fetch("http://127.0.0.1:8000/api/v1/agent/reset-connection", { method: "POST" }).catch(() => {});
     if (onDisconnect) {
       onDisconnect();
     }

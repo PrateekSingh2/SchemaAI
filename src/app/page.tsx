@@ -52,28 +52,78 @@ export default function QueryStudioPage() {
   // Database config
   const [dbConfig, setDbConfig] = useState({
     dbType: "",
+    connectionUri: "",
     databaseName: "",
+    savedModels: [] as { id: string; provider: string; name: string; apiKey: string; modelId?: string }[],
+    activeModelId: "",
     enableQueryGuard: true,
     llmProvider: "openai",
   });
+
+  const [currentPrompt, setCurrentPrompt] = useState("");
+  const handlePromptChange = (val: string) => setCurrentPrompt(val);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = sessionStorage.getItem("schemaai_cached_prompt");
+      if (cached) setCurrentPrompt(cached);
+    }
+  }, []);
 
   useEffect(() => {
     const checkDbStatus = () => {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("schemaai_db_connected");
-        setIsDbConnected(stored === "true");
+        const isConn = stored === "true";
+        setIsDbConnected(isConn);
         try {
           const cfg = localStorage.getItem("schemaai_db_config");
           if (cfg) {
             const parsed = JSON.parse(cfg);
             if (parsed && typeof parsed === "object") {
-              const cleanedDbName = parsed.databaseName || parsed.sqlitePath || "";
-              setDbConfig((prev) => ({
-                ...prev,
-                dbType: parsed.dbType || prev.dbType,
+              const cleanedDbName = isConn ? (parsed.databaseName || parsed.sqlitePath || "") : "";
+              let models = Array.isArray(parsed.savedModels) ? parsed.savedModels : [];
+              let activeId = parsed.activeModelId || (models[0]?.id || "");
+              
+              if (models.length === 0 && parsed.llmApiKey) {
+                const autoModel = {
+                  id: "default-model",
+                  provider: parsed.llmProvider || "openai",
+                  name: parsed.llmProvider === "nvidia" ? "Llama 3.1 70B (NVIDIA)" : parsed.llmProvider === "anthropic" ? "Claude 3.5 Sonnet" : "GPT-4o",
+                  apiKey: parsed.llmApiKey,
+                  modelId: parsed.llmProvider === "nvidia" ? "meta/llama-3.1-70b-instruct" : parsed.llmProvider === "anthropic" ? "claude-3-5-sonnet-20241022" : "gpt-4o",
+                };
+                models = [autoModel];
+                activeId = autoModel.id;
+              }
+
+              setDbConfig({
+                dbType: isConn ? (parsed.dbType || "PostgreSQL") : "",
+                connectionUri: isConn ? (parsed.connectionUri || "") : "",
                 databaseName: cleanedDbName,
-              }));
+                llmProvider: parsed.llmProvider || "openai",
+                savedModels: models,
+                activeModelId: activeId,
+                enableQueryGuard: parsed.enableQueryGuard !== undefined ? parsed.enableQueryGuard : true,
+                host: isConn ? (parsed.host || "") : "",
+                port: isConn ? (parsed.port || "") : "",
+                username: isConn ? (parsed.username || "") : "",
+                password: isConn ? (parsed.password || "") : "",
+                ssl: parsed.ssl !== undefined ? parsed.ssl : true,
+                supabaseUrl: isConn ? (parsed.supabaseUrl || "") : "",
+                supabaseAnonKey: isConn ? (parsed.supabaseAnonKey || "") : "",
+                supabaseServiceKey: isConn ? (parsed.supabaseServiceKey || "") : "",
+                mongoAuthSource: isConn ? (parsed.mongoAuthSource || "admin") : "admin",
+                connectionMode: isConn ? parsed.connectionMode : undefined,
+              } as any);
             }
+          } else if (!isConn) {
+            setDbConfig((prev) => ({
+              ...prev,
+              dbType: "",
+              connectionUri: "",
+              databaseName: "",
+            }));
           }
         } catch (_) {}
       }
@@ -114,18 +164,6 @@ export default function QueryStudioPage() {
     columns: [],
     records: [],
     executionTime: 30,
-  });
-
-  // Database config
-  const [dbConfig, setDbConfig] = useState({
-    dbType: "PostgreSQL",
-    connectionUri: "postgresql://postgres.user:••••••••@aws-0-us-east-1.pooler.supabase.com:5432/production_core_db",
-    username: "postgres.admin",
-    password: "••••••••••••••••",
-    databaseName: "production_core_db",
-    savedModels: [] as { id: string; provider: string; name: string; apiKey: string }[],
-    activeModelId: "",
-    enableQueryGuard: true,
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -267,17 +305,97 @@ export default function QueryStudioPage() {
 
     let generatedSql = "";
     let generatedText = "";
-    let responseType: "sql" | "text" = "sql";
+    let responseType: "sql" | "text" | "tool_call" = "sql";
     const startTime = performance.now();
 
     try {
-      const activeModel = dbConfig.savedModels.find(m => m.id === dbConfig.activeModelId);
-      const provider = activeModel ? activeModel.provider : "openai";
-      const apiKey = activeModel ? activeModel.apiKey : "";
-      const modelId = activeModel ? activeModel.modelId : "";
+      let activeModel = dbConfig.savedModels.find(m => m.id === dbConfig.activeModelId);
+      if (!activeModel && dbConfig.savedModels.length > 0) {
+        activeModel = dbConfig.savedModels[0];
+      }
+
+      let provider = activeModel ? activeModel.provider : dbConfig.llmProvider || "openai";
+      let apiKey = activeModel ? activeModel.apiKey : "";
+      let modelId = activeModel ? (activeModel.modelId || activeModel.name) : "";
+
+      // Fallback: check localStorage directly if state hasn't updated yet
+      if (!apiKey && typeof window !== "undefined") {
+        try {
+          const storedCfg = localStorage.getItem("schemaai_db_config");
+          if (storedCfg) {
+            const parsed = JSON.parse(storedCfg);
+            if (parsed.llmApiKey) {
+              apiKey = parsed.llmApiKey;
+              provider = parsed.llmProvider || provider;
+            } else if (Array.isArray(parsed.savedModels) && parsed.savedModels.length > 0) {
+              const m = parsed.savedModels.find((x: any) => x.id === parsed.activeModelId) || parsed.savedModels[0];
+              if (m && m.apiKey) {
+                apiKey = m.apiKey;
+                provider = m.provider || provider;
+                modelId = m.modelId || m.name || modelId;
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
       if (!apiKey) {
-        throw new Error("No AI Model selected. Please click 'Add AI Model' in the chat bar below to select or add a model.");
+        setIsSettingsModalOpen(true);
+        throw new Error("No AI API Key selected. Please configure your OpenAI, Anthropic, or NVIDIA API Key in Settings to generate queries.");
+      }
+
+      // Extract introspected schema context to feed to LLM
+      let schemaContext = "";
+      let activeDatabaseName = dbConfig.databaseName;
+      
+      if (typeof window !== "undefined") {
+        try {
+          const rawSchema = localStorage.getItem("schemaai_introspected_schema");
+          const storedCfg = localStorage.getItem("schemaai_db_config");
+          if (storedCfg) {
+            const parsedCfg = JSON.parse(storedCfg);
+            if (parsedCfg.databaseName) activeDatabaseName = parsedCfg.databaseName;
+          }
+
+          if (rawSchema) {
+            const parsedSchema = JSON.parse(rawSchema);
+            if (Array.isArray(parsedSchema.tables) && parsedSchema.tables.length > 0) {
+              const tableSummaries = parsedSchema.tables.map((t: any) => {
+                const name = t.tableName || t.name || t.id || "unknown_table";
+                const cols = Array.isArray(t.columns)
+                  ? t.columns
+                      .map((c: any) => {
+                        let colStr = `${c.name} (${c.type || "varchar"})`;
+                        if (c.isPrimaryKey) colStr += " [PRIMARY KEY]";
+                        if (c.isForeignKey && c.foreignKeyRef) colStr += ` [FK -> ${c.foreignKeyRef}]`;
+                        return colStr;
+                      })
+                      .join(", ")
+                  : "no columns listed";
+
+                let summary = `• Table/Collection: ${name}\n  Attributes/Columns: [${cols}]`;
+                if (t.rowCount !== undefined && t.rowCount > 0) {
+                  summary += `\n  Total Records: ${t.rowCount}`;
+                }
+                if (t.sampleDocument) {
+                  summary += `\n  Sample Document/Structure: ${JSON.stringify(t.sampleDocument).slice(0, 300)}`;
+                }
+                return summary;
+              });
+
+              let fksSummary = "";
+              if (Array.isArray(parsedSchema.fks) && parsedSchema.fks.length > 0) {
+                fksSummary = "\nRelationships / Foreign Keys:\n" + parsedSchema.fks
+                  .map((fk: any) => `• ${fk.from} -> ${fk.to} (${fk.label || "references"})`)
+                  .join("\n");
+              }
+
+              schemaContext = `Database Name: ${activeDatabaseName || dbConfig.dbType}\nDatabase Engine: ${dbConfig.dbType}\n\nSchema Tables & Attributes:\n${tableSummaries.join("\n\n")}${fksSummary}`;
+            }
+          }
+        } catch (e) {
+          console.warn("Could not build schemaContext:", e);
+        }
       }
 
       const response = await fetch("http://127.0.0.1:8000/api/v1/agent/command", {
@@ -288,8 +406,9 @@ export default function QueryStudioPage() {
           llmProvider: provider,
           llmApiKey: apiKey,
           llmModel: modelId,
-          dbType: dbConfig.dbType,
+          dbType: dbConfig.dbType || "PostgreSQL",
           connectionUri: dbConfig.connectionUri,
+          schemaContext: schemaContext,
         }),
       });
 
@@ -331,23 +450,104 @@ export default function QueryStudioPage() {
       generatedText = `⚠️ ${error.message || "Network or Server Error"}`;
     }
 
-    const executionTimeMs = performance.now() - startTime;
-    const mockOutput = generateMockResult(promptText, "sql");
+    const executionTimeMs = Math.round(performance.now() - startTime);
+    let executionRecords: any[] = [];
+    let executionColumns: string[] = [];
+    let hasSuccessfullyExecuted = false;
+
+    // Auto-execute the synthesized query immediately against the connected database
+    if (responseType === "sql" && generatedSql && !generatedSql.startsWith("--")) {
+      try {
+        let storedCfg: any = {};
+        if (typeof window !== "undefined") {
+          try {
+            storedCfg = JSON.parse(localStorage.getItem("schemaai_db_config") || "{}");
+          } catch (_) {}
+        }
+
+        const payload = {
+          sql: generatedSql,
+          dbType: dbConfig.dbType || storedCfg.dbType || "PostgreSQL",
+          connectionUri: dbConfig.connectionUri || storedCfg.connectionUri || "",
+          connectionMode: (dbConfig as any).connectionMode || storedCfg.connectionMode || "uri",
+          host: (dbConfig as any).host || storedCfg.host,
+          port: (dbConfig as any).port || storedCfg.port,
+          databaseName: dbConfig.databaseName || storedCfg.databaseName,
+          username: (dbConfig as any).username || storedCfg.username,
+          password: (dbConfig as any).password || storedCfg.password,
+          ssl: storedCfg.ssl !== undefined ? storedCfg.ssl : true,
+          supabaseUrl: (dbConfig as any).supabaseUrl || storedCfg.supabaseUrl,
+          supabaseAnonKey: (dbConfig as any).supabaseAnonKey || storedCfg.supabaseAnonKey,
+          supabaseServiceKey: (dbConfig as any).supabaseServiceKey || storedCfg.supabaseServiceKey,
+          mongoAuthSource: (dbConfig as any).mongoAuthSource || storedCfg.mongoAuthSource || "admin",
+        };
+
+        // Attempt Next.js serverless execution first
+        let execRes = await fetch("/api/database/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!execRes.ok) {
+          // Fallback to FastAPI backend
+          execRes = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sql: generatedSql,
+              connectionUri: dbConfig.connectionUri || storedCfg.connectionUri,
+            }),
+          });
+        }
+
+        if (execRes.ok) {
+          const execData = await execRes.json();
+          if (execData.success !== false) {
+            executionRecords = Array.isArray(execData.records) ? execData.records : [];
+            executionColumns = Array.isArray(execData.columns)
+              ? execData.columns
+              : executionRecords.length > 0 && typeof executionRecords[0] === "object"
+              ? Object.keys(executionRecords[0])
+              : [];
+            hasSuccessfullyExecuted = true;
+          } else {
+            executionRecords = [{ error: execData.message || "Database execution error." }];
+            executionColumns = ["error"];
+            hasSuccessfullyExecuted = true;
+          }
+        } else {
+          try {
+            const errJson = await execRes.json();
+            executionRecords = [{ error: errJson.message || "Database query failed." }];
+          } catch (_) {
+            executionRecords = [{ error: `HTTP ${execRes.status} during query execution.` }];
+          }
+          executionColumns = ["error"];
+          hasSuccessfullyExecuted = true;
+        }
+      } catch (execErr: any) {
+        console.warn("Auto-execution encountered an issue:", execErr);
+        executionRecords = [{ error: execErr?.message || "Execution network failure." }];
+        executionColumns = ["error"];
+        hasSuccessfullyExecuted = true;
+      }
+    }
 
     const completedTurn: ChatMessageTurn = {
       id: turnId,
       userPrompt: promptText,
       timestamp: "Just now",
       sql: generatedSql, 
-      graphql: mockOutput.graphql,
+      graphql: "",
       queryFormat: "sql",
-      type: responseType,
+      type: responseType === "sql" ? "sql" : "text",
       textContent: generatedText,
-      hasRun: false,
-      records: mockOutput.records, 
-      columns: mockOutput.columns,
+      hasRun: hasSuccessfullyExecuted,
+      records: hasSuccessfullyExecuted ? executionRecords : [], 
+      columns: hasSuccessfullyExecuted ? executionColumns : [],
       executionTime: executionTimeMs,
-      tokens: responseType === "sql" ? generatedSql.length / 4 : generatedText.length / 4, 
+      tokens: responseType === "sql" ? Math.max(1, Math.round(generatedSql.length / 4)) : Math.max(1, Math.round(generatedText.length / 4)), 
       cost: "$0.0001",
       isGenerating: false,
     };
@@ -364,19 +564,18 @@ export default function QueryStudioPage() {
         id: newOpId,
         prompt: promptText,
         sql: generatedSql,
-        graphql: mockOutput.graphql,
+        graphql: "",
         timestamp: "Just now",
         format: "sql",
-        type: responseType,
+        type: responseType === "sql" ? "sql" : "text",
         textContent: generatedText,
-        status: "generated",
-        rowCount: mockOutput.records.length,
-        records: mockOutput.records,
-        columns: mockOutput.columns,
-        executionTime: mockOutput.executionTime,
+        status: hasSuccessfullyExecuted ? "executed" : "generated",
+        rowCount: executionRecords.length,
+        records: executionRecords,
+        columns: executionColumns,
+        executionTime: executionTimeMs,
         turns: [completedTurn],
       };
-      // Only push SQL operations to the sidebar to keep it clean from text chat
       if (responseType === "sql") {
         setOperations((prev) => [newOp, ...prev]);
         setActiveOperationId(newOpId);
@@ -388,6 +587,10 @@ export default function QueryStudioPage() {
             ? {
                 ...op,
                 sql: responseType === "sql" ? generatedSql : op.sql,
+                status: hasSuccessfullyExecuted ? "executed" : op.status,
+                rowCount: hasSuccessfullyExecuted ? executionRecords.length : op.rowCount,
+                records: hasSuccessfullyExecuted ? executionRecords : op.records,
+                columns: hasSuccessfullyExecuted ? executionColumns : op.columns,
                 turns: [...(op.turns || []), completedTurn],
               }
             : op
@@ -395,7 +598,7 @@ export default function QueryStudioPage() {
       );
     }
 
-    recordAuditLog(promptText, mockOutput.sql, mockOutput.executionTime, mockOutput.records.length);
+    recordAuditLog(promptText, generatedSql, executionTimeMs, executionRecords.length);
   };
 
   // 2. Run Query action for a specific turn
@@ -429,33 +632,79 @@ export default function QueryStudioPage() {
     let columns: string[] = [];
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
+      let storedCfg: any = {};
+      if (typeof window !== "undefined") {
+        try {
+          storedCfg = JSON.parse(localStorage.getItem("schemaai_db_config") || "{}");
+        } catch (_) {}
+      }
+
+      const payload = {
+        sql: queryToExecute,
+        dbType: dbConfig.dbType || storedCfg.dbType || "PostgreSQL",
+        connectionUri: dbConfig.connectionUri || storedCfg.connectionUri || "",
+        connectionMode: (dbConfig as any).connectionMode || storedCfg.connectionMode || "uri",
+        host: (dbConfig as any).host || storedCfg.host,
+        port: (dbConfig as any).port || storedCfg.port,
+        databaseName: dbConfig.databaseName || storedCfg.databaseName,
+        username: (dbConfig as any).username || storedCfg.username,
+        password: (dbConfig as any).password || storedCfg.password,
+        ssl: storedCfg.ssl !== undefined ? storedCfg.ssl : true,
+        supabaseUrl: (dbConfig as any).supabaseUrl || storedCfg.supabaseUrl,
+        supabaseAnonKey: (dbConfig as any).supabaseAnonKey || storedCfg.supabaseAnonKey,
+        supabaseServiceKey: (dbConfig as any).supabaseServiceKey || storedCfg.supabaseServiceKey,
+        mongoAuthSource: (dbConfig as any).mongoAuthSource || storedCfg.mongoAuthSource || "admin",
+      };
+
+      let response = await fetch("/api/database/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sql: queryToExecute,
-          connectionUri: dbConfig.connectionUri,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        response = await fetch("http://127.0.0.1:8000/api/v1/agent/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sql: queryToExecute,
+            connectionUri: dbConfig.connectionUri || storedCfg.connectionUri,
+          }),
+        });
+      }
 
       if (response.ok) {
         const data = await response.json();
-        records = data.records || [];
-        columns = data.columns || [];
+        if (data.success === false) {
+          records = [{ error: data.message || "Execution failed." }];
+          columns = ["error"];
+        } else {
+          records = Array.isArray(data.records) ? data.records : [];
+          columns = Array.isArray(data.columns)
+            ? data.columns
+            : records.length > 0 && typeof records[0] === "object"
+            ? Object.keys(records[0])
+            : [];
+        }
       } else {
-        console.error("Execute error:", await response.text());
-        records = [{ error: "Execution failed" }];
+        try {
+          const errJson = await response.json();
+          records = [{ error: errJson.message || "Database execution failed." }];
+        } catch (_) {
+          const errText = await response.text();
+          records = [{ error: errText || "Execution failed" }];
+        }
         columns = ["error"];
       }
-    } catch (err) {
-      console.error("Network error:", err);
-      records = [{ error: "Network error" }];
+    } catch (err: any) {
+      console.error("Network error during execution:", err);
+      records = [{ error: err?.message || "Execution network error" }];
       columns = ["error"];
     }
 
-    const executionTimeMs = performance.now() - startTime;
+    const executionTimeMs = Math.round(performance.now() - startTime);
 
-    // Update turn state
+    // Update turn state with executed results
     setActiveTurns((prev) =>
       prev.map((t) =>
         t.id === turnId
@@ -489,13 +738,15 @@ export default function QueryStudioPage() {
                 ...op,
                 status: "executed",
                 rowCount: records.length,
+                records: records,
+                columns: columns,
               }
             : op
         )
       );
     }
 
-    recordAuditLog(promptToCheck, queryToExecute, mockOutput.executionTime, mockOutput.records.length);
+    recordAuditLog(promptToCheck, queryToExecute, executionTimeMs, records.length);
   };
 
   // 3. User edits SQL for a specific turn
@@ -630,10 +881,43 @@ export default function QueryStudioPage() {
         isConnected={isDbConnected}
         onDisconnect={() => {
           setIsDbConnected(false);
+          setDbConfig((prev) => ({
+            ...prev,
+            dbType: "",
+            connectionUri: "",
+            databaseName: "",
+            host: "",
+            port: "",
+            username: "",
+            password: "",
+            supabaseUrl: "",
+            supabaseAnonKey: "",
+            supabaseServiceKey: "",
+            mongoAuthSource: "admin",
+          }));
           if (typeof window !== "undefined") {
             localStorage.setItem("schemaai_db_connected", "false");
+            localStorage.removeItem("schemaai_introspected_schema");
+            try {
+              const cfg = localStorage.getItem("schemaai_db_config");
+              if (cfg) {
+                const parsed = JSON.parse(cfg);
+                const cleaned = {
+                  savedModels: parsed.savedModels || [],
+                  activeModelId: parsed.activeModelId || "",
+                  llmProvider: parsed.llmProvider || "openai",
+                  llmApiKey: parsed.llmApiKey || "",
+                  enableQueryGuard: parsed.enableQueryGuard !== undefined ? parsed.enableQueryGuard : true,
+                  dbType: "",
+                  connectionUri: "",
+                  databaseName: "",
+                };
+                localStorage.setItem("schemaai_db_config", JSON.stringify(cleaned));
+              }
+            } catch (_) {}
             window.dispatchEvent(new Event("schemaai_db_changed"));
           }
+          fetch("http://127.0.0.1:8000/api/v1/agent/reset-connection", { method: "POST" }).catch(() => {});
         }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
@@ -667,8 +951,9 @@ export default function QueryStudioPage() {
                 onGenerateAndRun={handleGenerateQuery}
                 isLoading={isGenerating}
                 isCentered={true}
-                llmProvider={dbConfig.llmProvider}
-                onLlmChange={(provider) => setDbConfig({ ...dbConfig, llmProvider: provider })}
+                savedModels={dbConfig.savedModels}
+                activeModelId={dbConfig.activeModelId}
+                onModelChange={(modelId) => setDbConfig({ ...dbConfig, activeModelId: modelId })}
                 dbType={dbConfig.dbType}
                 onOpenSettings={() => setIsSettingsModalOpen(true)}
               />
@@ -752,7 +1037,7 @@ export default function QueryStudioPage() {
                             executionTime={turn.executionTime}
                             tokens={turn.tokens}
                             cost={turn.cost}
-                            dialect={`${dbConfig.dbType} 16`}
+                            dialect={dbConfig.dbType === "MongoDB" ? "MongoDB Atlas" : dbConfig.dbType === "MySQL" ? "MySQL 8.0" : dbConfig.dbType === "Neon" ? "Neon Serverless" : dbConfig.dbType === "Supabase" ? "Supabase Postgres" : dbConfig.dbType ? `${dbConfig.dbType}` : "PostgreSQL 16"}
                           />
                         </div>
 

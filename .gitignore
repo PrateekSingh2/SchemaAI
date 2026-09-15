@@ -1,7 +1,5 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
+# Dependencies
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,40 +8,80 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Next.js build output & caches
 /.next/
 /out/
-
-# production
 /build
+/dist
+.turbo/
 
-# misc
-.DS_Store
-*.pem
+# Netlify build cache
+.netlify/
 
-# debug
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+pip-wheel-metadata/
+
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+backend/venv/
+backend/.venv/
+backend/__pycache__/
+
+# Environment and secret files
+.env*
+!.env.example
+!backend/.env.example
+
+# Logs and debugging
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Database & local storage
+*.sqlite
+*.sqlite3
+*.db
 
-# vercel
-.vercel
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
 
+# Testing and coverage
+/coverage
+.nyc_output/
+
+# Certificates and keys
+*.pem
+
+# AI agent instructions
 CLAUDE.md
-AGENTS.md
-backend/.venv/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc
-backend/.venv/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc
-backend/.venv/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc
-/backend
-*.pyc
+

@@ -63,7 +63,7 @@ export interface DatabaseValidationResult {
  * Handles passwords containing raw/unencoded special characters (e.g. @, #, $, %, !, ^, &, *),
  * IPv6 addresses, query parameters (?sslmode=require), and Supabase PgBouncer pooler connection strings.
  */
-function parsePostgresConfig(
+export function parsePostgresConfig(
   connectionUriOrConfig:
     | string
     | { host?: string; port?: number | string; database?: string; user?: string; password?: string; ssl?: any }
@@ -519,30 +519,60 @@ async function introspectSupabase(
       });
     }
 
-    // Query EXACT REAL row count for every table via HEAD /rest/v1/${table}?select=* with Prefer: count=exact
+    // Query EXACT REAL row count for every table, and dynamically introspect columns if OpenAPI definitions were missing
     await Promise.all(
       tables.map(async (table) => {
         try {
+          const fetchColumns = table.columns.length === 1 && table.columns[0].name === "id";
+          const method = fetchColumns ? "GET" : "HEAD";
+          const query = fetchColumns ? "?select=*&limit=1" : "?select=*";
+          
           const headRes = await fetch(
-            `${cleanUrl}/rest/v1/${encodeURIComponent(table.tableName)}?select=*`,
+            `${cleanUrl}/rest/v1/${encodeURIComponent(table.tableName)}${query}`,
             {
-              method: "HEAD",
+              method,
               headers: {
                 apikey: cleanKey,
                 Authorization: `Bearer ${cleanKey}`,
                 Prefer: "count=exact",
+                Accept: "application/json",
               },
               signal: AbortSignal.timeout(4000),
             }
           );
+          
           const range = headRes.headers.get("content-range");
           if (range) {
-            // Content-Range format: "0-0/42" or "*/0" or "0-9/100"
             const parts = range.split("/");
             if (parts[1] && parts[1] !== "*") {
               table.rowCount = parseInt(parts[1], 10) || 0;
             } else {
               table.rowCount = 0;
+            }
+          }
+
+          if (fetchColumns && headRes.ok) {
+            const records = await headRes.json();
+            if (Array.isArray(records) && records.length > 0) {
+              const firstRow = records[0];
+              const dynamicColumns: ColumnDefinition[] = [];
+              for (const colName of Object.keys(firstRow)) {
+                let type = "text";
+                const val = firstRow[colName];
+                if (typeof val === "number") type = "numeric";
+                else if (typeof val === "boolean") type = "boolean";
+                else if (val && typeof val === "object") type = "jsonb";
+                
+                dynamicColumns.push({
+                  name: colName,
+                  type,
+                  isPrimaryKey: colName === "id",
+                  isNullable: true,
+                });
+              }
+              if (dynamicColumns.length > 0) {
+                table.columns = dynamicColumns;
+              }
             }
           }
         } catch (_) {

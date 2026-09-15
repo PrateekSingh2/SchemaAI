@@ -13,6 +13,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Check,
+  AlertCircle,
 } from "lucide-react";
 import { RecordsTable } from "./RecordsTable";
 import { cn } from "@/lib/utils";
@@ -38,15 +39,48 @@ export const OutputSummaryBox: React.FC<OutputSummaryBoxProps> = ({
   maskedColumns = [],
   activeChart = null,
 }) => {
-  const [isInlineExpanded, setIsInlineExpanded] = useState(false);
+  const [isInlineExpanded, setIsInlineExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  const isExecutionError = records.length > 0 && Boolean(records[0]?.error);
+  const errorMessage = isExecutionError ? String(records[0].error) : "";
+
   const handleCopySummary = () => {
-    if (records.length === 0) return;
+    if (records.length === 0 || isExecutionError) return;
     navigator.clipboard.writeText(JSON.stringify(records, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (isExecutionError) {
+    return (
+      <div className="w-full rounded-2xl bg-rose-950/25 border border-rose-500/30 p-4 space-y-3 shadow-md select-none animate-in fade-in duration-200">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start space-x-3 max-w-xl">
+            <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 mt-0.5 shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-rose-200">
+                Database Execution Issue
+              </h3>
+              <p className="text-xs sm:text-sm text-rose-300/90 mt-1 font-mono leading-relaxed break-words">
+                {errorMessage}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onRunQuery}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-xs font-semibold cursor-pointer shrink-0 transition-all ml-auto"
+          >
+            <Play className="w-3.5 h-3.5 fill-current text-rose-300" />
+            <span>Retry Query</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!hasRun) {
     return (
